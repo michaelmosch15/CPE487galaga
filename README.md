@@ -1,8 +1,7 @@
 # Final Project: Video Game Galaga
 
 * This project implements a simplified version of the classic arcade game **Galaga** on the Digilent Nexys A7-100T FPGA board using VHDL.
-  * The project utilizes the VGA interface to display the game state on a monitor (800x600 @ 60Hz).
-  * It demonstrates complex state management, collision detection, and VGA signal generation.
+  * The project utilizes the VGA interface to display the game state on a monitor
 
 ## Project Description & Behavior
 

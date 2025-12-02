@@ -14,6 +14,7 @@ ENTITY galaga IS
         btnl : IN STD_LOGIC; -- move left
         btnr : IN STD_LOGIC; -- move right
         btn0 : IN STD_LOGIC; -- shoot
+        btnu : IN STD_LOGIC; -- reset
         SEG7_anode : OUT STD_LOGIC_VECTOR (7 DOWNTO 0); -- anodes of four 7-seg displays
         SEG7_seg : OUT STD_LOGIC_VECTOR (6 DOWNTO 0)
     ); 
@@ -39,6 +40,7 @@ ARCHITECTURE Behavioral OF galaga IS
             pixel_col : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
             player_x : IN STD_LOGIC_VECTOR (10 DOWNTO 0);
             shoot : IN STD_LOGIC;
+            reset : IN STD_LOGIC;
             red : OUT STD_LOGIC;
             green : OUT STD_LOGIC;
             blue : OUT STD_LOGIC;
@@ -111,6 +113,7 @@ BEGIN
         pixel_col => S_pixel_col, 
         player_x => player_pos, 
         shoot => shoot_signal, 
+        reset => btnu,
         red => S_red, 
         green => S_green, 
         blue => S_blue,

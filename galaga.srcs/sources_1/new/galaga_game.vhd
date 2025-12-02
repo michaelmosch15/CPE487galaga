@@ -10,6 +10,7 @@ ENTITY galaga_game IS
         pixel_col : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
         player_x : IN STD_LOGIC_VECTOR(10 DOWNTO 0); -- player ship x position
         shoot : IN STD_LOGIC; -- fire button
+        reset : IN STD_LOGIC; -- reset button
         red : OUT STD_LOGIC;
         green : OUT STD_LOGIC;
         blue : OUT STD_LOGIC;
@@ -41,6 +42,12 @@ ARCHITECTURE Behavioral OF galaga_game IS
     SIGNAL bullet_on : STD_LOGIC;
     SIGNAL enemy_bullet_on : STD_LOGIC;
     SIGNAL game_active : STD_LOGIC := '1';
+    
+    -- Game State
+    TYPE game_state_type IS (START, PLAY, GAMEOVER, NEXT_WAVE);
+    SIGNAL current_state : game_state_type := START;
+    SIGNAL wave_number : INTEGER RANGE 1 TO 3 := 1;
+    SIGNAL shoot_delay : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(60, 11);
     
     -- Player ship position
     SIGNAL player_x_pos : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(400, 11);
@@ -78,7 +85,7 @@ BEGIN
     green <= NOT (enemy_on OR enemy_bullet_on);
     blue <= NOT (player_on OR enemy_on OR bullet_on OR enemy_bullet_on);
     score <= score_i;
-    game_over <= NOT game_active;
+    game_over <= '1' WHEN current_state = GAMEOVER ELSE '0';
     
     -- Process to draw player ship (triangle shape)
     player_draw : PROCESS (player_x_pos, pixel_row, pixel_col) IS
@@ -203,172 +210,220 @@ BEGIN
     BEGIN
         WAIT UNTIL rising_edge(v_sync);
         
-        IF game_active = '1' THEN
-            -- Update player position
-            player_x_pos <= player_x;
-            
-            -- Handle shooting
-            IF shoot = '1' AND shoot_prev = '0' AND bullet_active = '0' THEN
-                bullet_active <= '1';
-                bullet_x <= player_x_pos;
-                bullet_y <= player_y - CONV_STD_LOGIC_VECTOR(player_size, 11);
-            END IF;
-            shoot_prev <= shoot;
-            
-            -- Move bullet
-            IF bullet_active = '1' THEN
-                temp := ('0' & bullet_y) - ('0' & bullet_speed);
-                IF temp(11) = '1' OR bullet_y < bullet_size THEN
+        IF reset = '1' THEN
+            current_state <= START;
+        ELSE
+            CASE current_state IS
+                WHEN START =>
+                    score_i <= (OTHERS => '0');
+                    wave_number <= 1;
+                    current_state <= NEXT_WAVE;
+                    
+                WHEN NEXT_WAVE =>
+                    -- Reset positions
+                    enemy_x_pos <= CONV_STD_LOGIC_VECTOR(100, 11);
+                    enemy_y_offset <= (OTHERS => '0');
+                    enemy_direction <= '0';
                     bullet_active <= '0';
-                    bullet_y <= CONV_STD_LOGIC_VECTOR(600, 11);
-                ELSE
-                    bullet_y <= temp(10 DOWNTO 0);
-                END IF;
-            END IF;
-            
-            -- Handle Enemy Shooting
-            random_col <= random_col + 1; -- Simple counter for randomness
-            enemy_shoot_timer <= enemy_shoot_timer + 1;
-            
-            IF enemy_bullet_active = '0' AND enemy_shoot_timer > CONV_STD_LOGIC_VECTOR(60, 11) THEN -- Shoot roughly once per second
-                enemy_shoot_timer <= (OTHERS => '0');
-                -- Try to find an enemy in the random column to shoot
-                FOR row IN NUM_ENEMY_ROWS-1 DOWNTO 0 LOOP
-                    IF enemy_alive(row, CONV_INTEGER(random_col)) = '1' THEN
-                        enemy_bullet_active <= '1';
-                        enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X, 11);
-                        enemy_bullet_y <= enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11) + enemy_size;
-                        EXIT; -- Only one bullet
-                    END IF;
-                END LOOP;
-            END IF;
-            
-            -- Move Enemy Bullet
-            IF enemy_bullet_active = '1' THEN
-                IF enemy_bullet_y > CONV_STD_LOGIC_VECTOR(600, 11) THEN
                     enemy_bullet_active <= '0';
-                ELSE
-                    enemy_bullet_y <= enemy_bullet_y + enemy_bullet_speed;
-                END IF;
-                
-                -- Check collision with player
-                IF enemy_bullet_x >= player_x_pos - player_size AND
-                   enemy_bullet_x <= player_x_pos + player_size AND
-                   enemy_bullet_y >= player_y - player_size AND
-                   enemy_bullet_y <= player_y + player_size THEN
-                    game_active <= '0';
-                END IF;
-            END IF;
-            
-            -- Move enemies (side to side, then down)
-            enemy_move_counter <= enemy_move_counter + 1;
-            IF enemy_move_counter = CONV_STD_LOGIC_VECTOR(5, 21) THEN -- Faster movement (every 5 frames)
-                enemy_move_counter <= (OTHERS => '0');
-                
-                -- Check if enemies hit edge
-                IF enemy_direction = '0' THEN -- moving right
-                    IF enemy_x_pos + CONV_STD_LOGIC_VECTOR((NUM_ENEMY_COLS-1) * ENEMY_SPACING_X + enemy_size, 11) >= CONV_STD_LOGIC_VECTOR(780, 11) THEN
-                        enemy_direction <= '1';
-                        -- Move down
-                        enemy_y_offset <= enemy_y_offset + CONV_STD_LOGIC_VECTOR(10, 11);
-                        -- Check if enemy reached bottom
-                        FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
-                            FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
-                                IF enemy_alive(row, col) = '1' THEN
-                                    IF enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11) + enemy_size >= player_y - player_size THEN
-                                        game_active <= '0'; -- game over
-                                    END IF;
+                    
+                    -- Set difficulty
+                    CASE wave_number IS
+                        WHEN 1 => shoot_delay <= CONV_STD_LOGIC_VECTOR(60, 11);
+                        WHEN 2 => shoot_delay <= CONV_STD_LOGIC_VECTOR(45, 11);
+                        WHEN 3 => shoot_delay <= CONV_STD_LOGIC_VECTOR(30, 11);
+                        WHEN OTHERS => shoot_delay <= CONV_STD_LOGIC_VECTOR(20, 11);
+                    END CASE;
+                    
+                    -- Set Formation
+                    FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
+                        FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
+                            IF wave_number = 1 THEN
+                                enemy_alive(row, col) <= '1'; -- Full block
+                            ELSIF wave_number = 2 THEN
+                                IF (row + col) MOD 2 = 0 THEN -- Checkerboard
+                                    enemy_alive(row, col) <= '1';
+                                ELSE
+                                    enemy_alive(row, col) <= '0';
                                 END IF;
-                            END LOOP;
-                        END LOOP;
-                    ELSE
-                        enemy_x_pos <= enemy_x_pos + enemy_speed;
-                    END IF;
-                ELSE -- moving left
-                    IF enemy_x_pos <= CONV_STD_LOGIC_VECTOR(20, 11) THEN
-                        enemy_direction <= '0';
-                        -- Move down
-                        enemy_y_offset <= enemy_y_offset + CONV_STD_LOGIC_VECTOR(10, 11);
-                        -- Check if enemy reached bottom
-                        FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
-                            FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
-                                IF enemy_alive(row, col) = '1' THEN
-                                    IF enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11) + enemy_size >= player_y - player_size THEN
-                                        game_active <= '0';
-                                    END IF;
+                            ELSE -- Wave 3 (V-Shapeish)
+                                IF row = 0 OR row = 1 THEN
+                                    enemy_alive(row, col) <= '1';
+                                ELSIF row = 2 AND (col > 1 AND col < 6) THEN
+                                    enemy_alive(row, col) <= '1';
+                                ELSIF row = 3 AND (col > 2 AND col < 5) THEN
+                                    enemy_alive(row, col) <= '1';
+                                ELSE
+                                    enemy_alive(row, col) <= '0';
                                 END IF;
-                            END LOOP;
+                            END IF;
                         END LOOP;
-                    ELSE
-                        enemy_x_pos <= enemy_x_pos - enemy_speed;
+                    END LOOP;
+                    
+                    current_state <= PLAY;
+                    
+                WHEN PLAY =>
+                    -- Update player position
+                    player_x_pos <= player_x;
+                    
+                    -- Handle shooting
+                    IF shoot = '1' AND shoot_prev = '0' AND bullet_active = '0' THEN
+                        bullet_active <= '1';
+                        bullet_x <= player_x_pos;
+                        bullet_y <= player_y - CONV_STD_LOGIC_VECTOR(player_size, 11);
                     END IF;
-                END IF;
-            END IF;
-            
-            -- Check bullet-enemy collisions
-            IF bullet_active = '1' THEN
-                collision_found := '0';
-                FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
-                    FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
-                        IF enemy_alive(row, col) = '1' AND collision_found = '0' THEN
-                            enemy_x := enemy_x_pos + CONV_STD_LOGIC_VECTOR(col * ENEMY_SPACING_X, 11);
-                            enemy_y := enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11);
-                            
-                            IF bullet_x >= enemy_x - enemy_size AND
-                               bullet_x <= enemy_x + enemy_size AND
-                               bullet_y >= enemy_y - enemy_size AND
-                               bullet_y <= enemy_y + enemy_size THEN
-                                enemy_alive(row, col) <= '0';
-                                bullet_active <= '0';
-                                bullet_y <= CONV_STD_LOGIC_VECTOR(600, 11);
-                                score_i <= score_i + 10;
-                                collision_found := '1';
+                    shoot_prev <= shoot;
+                    
+                    -- Move bullet
+                    IF bullet_active = '1' THEN
+                        temp := ('0' & bullet_y) - ('0' & bullet_speed);
+                        IF temp(11) = '1' OR bullet_y < bullet_size THEN
+                            bullet_active <= '0';
+                            bullet_y <= CONV_STD_LOGIC_VECTOR(600, 11);
+                        ELSE
+                            bullet_y <= temp(10 DOWNTO 0);
+                        END IF;
+                    END IF;
+                    
+                    -- Handle Enemy Shooting
+                    random_col <= random_col + 1; 
+                    enemy_shoot_timer <= enemy_shoot_timer + 1;
+                    
+                    IF enemy_bullet_active = '0' AND enemy_shoot_timer > shoot_delay THEN 
+                        enemy_shoot_timer <= (OTHERS => '0');
+                        FOR row IN NUM_ENEMY_ROWS-1 DOWNTO 0 LOOP
+                            IF enemy_alive(row, CONV_INTEGER(random_col)) = '1' THEN
+                                enemy_bullet_active <= '1';
+                                enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X, 11);
+                                enemy_bullet_y <= enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11) + enemy_size;
+                                EXIT; 
+                            END IF;
+                        END LOOP;
+                    END IF;
+                    
+                    -- Move Enemy Bullet
+                    IF enemy_bullet_active = '1' THEN
+                        IF enemy_bullet_y > CONV_STD_LOGIC_VECTOR(600, 11) THEN
+                            enemy_bullet_active <= '0';
+                        ELSE
+                            enemy_bullet_y <= enemy_bullet_y + enemy_bullet_speed;
+                        END IF;
+                        
+                        -- Check collision with player
+                        IF enemy_bullet_x >= player_x_pos - player_size AND
+                           enemy_bullet_x <= player_x_pos + player_size AND
+                           enemy_bullet_y >= player_y - player_size AND
+                           enemy_bullet_y <= player_y + player_size THEN
+                            current_state <= GAMEOVER;
+                        END IF;
+                    END IF;
+                    
+                    -- Move enemies
+                    enemy_move_counter <= enemy_move_counter + 1;
+                    IF enemy_move_counter = CONV_STD_LOGIC_VECTOR(5, 21) THEN 
+                        enemy_move_counter <= (OTHERS => '0');
+                        
+                        IF enemy_direction = '0' THEN -- moving right
+                            IF enemy_x_pos + CONV_STD_LOGIC_VECTOR((NUM_ENEMY_COLS-1) * ENEMY_SPACING_X + enemy_size, 11) >= CONV_STD_LOGIC_VECTOR(780, 11) THEN
+                                enemy_direction <= '1';
+                                enemy_y_offset <= enemy_y_offset + CONV_STD_LOGIC_VECTOR(10, 11);
+                                -- Check bottom
+                                FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
+                                    FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
+                                        IF enemy_alive(row, col) = '1' THEN
+                                            IF enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11) + enemy_size >= player_y - player_size THEN
+                                                current_state <= GAMEOVER;
+                                            END IF;
+                                        END IF;
+                                    END LOOP;
+                                END LOOP;
+                            ELSE
+                                enemy_x_pos <= enemy_x_pos + enemy_speed;
+                            END IF;
+                        ELSE -- moving left
+                            IF enemy_x_pos <= CONV_STD_LOGIC_VECTOR(20, 11) THEN
+                                enemy_direction <= '0';
+                                enemy_y_offset <= enemy_y_offset + CONV_STD_LOGIC_VECTOR(10, 11);
+                                -- Check bottom
+                                FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
+                                    FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
+                                        IF enemy_alive(row, col) = '1' THEN
+                                            IF enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11) + enemy_size >= player_y - player_size THEN
+                                                current_state <= GAMEOVER;
+                                            END IF;
+                                        END IF;
+                                    END LOOP;
+                                END LOOP;
+                            ELSE
+                                enemy_x_pos <= enemy_x_pos - enemy_speed;
                             END IF;
                         END IF;
+                    END IF;
+                    
+                    -- Check bullet-enemy collisions
+                    IF bullet_active = '1' THEN
+                        collision_found := '0';
+                        FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
+                            FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
+                                IF enemy_alive(row, col) = '1' AND collision_found = '0' THEN
+                                    enemy_x := enemy_x_pos + CONV_STD_LOGIC_VECTOR(col * ENEMY_SPACING_X, 11);
+                                    enemy_y := enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11);
+                                    
+                                    IF bullet_x >= enemy_x - enemy_size AND
+                                       bullet_x <= enemy_x + enemy_size AND
+                                       bullet_y >= enemy_y - enemy_size AND
+                                       bullet_y <= enemy_y + enemy_size THEN
+                                        enemy_alive(row, col) <= '0';
+                                        bullet_active <= '0';
+                                        bullet_y <= CONV_STD_LOGIC_VECTOR(600, 11);
+                                        score_i <= score_i + 10;
+                                        collision_found := '1';
+                                    END IF;
+                                END IF;
+                            END LOOP;
+                        END LOOP;
+                    END IF;
+                    
+                    -- Check enemy-player collisions
+                    collision_found := '0';
+                    FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
+                        FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
+                            IF enemy_alive(row, col) = '1' AND collision_found = '0' THEN
+                                enemy_x := enemy_x_pos + CONV_STD_LOGIC_VECTOR(col * ENEMY_SPACING_X, 11);
+                                enemy_y := enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11);
+                                
+                                IF player_x_pos >= enemy_x - enemy_size - player_size AND
+                                   player_x_pos <= enemy_x + enemy_size + player_size AND
+                                   player_y >= enemy_y - enemy_size AND
+                                   player_y <= enemy_y + enemy_size THEN
+                                    current_state <= GAMEOVER;
+                                    collision_found := '1';
+                                END IF;
+                            END IF;
+                        END LOOP;
                     END LOOP;
-                END LOOP;
-            END IF;
-            
-            -- Check enemy-player collisions
-            collision_found := '0';
-            FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
-                FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
-                    IF enemy_alive(row, col) = '1' AND collision_found = '0' THEN
-                        enemy_x := enemy_x_pos + CONV_STD_LOGIC_VECTOR(col * ENEMY_SPACING_X, 11);
-                        enemy_y := enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11);
-                        
-                        IF player_x_pos >= enemy_x - enemy_size - player_size AND
-                           player_x_pos <= enemy_x + enemy_size + player_size AND
-                           player_y >= enemy_y - enemy_size AND
-                           player_y <= enemy_y + enemy_size THEN
-                            game_active <= '0';
-                            collision_found := '1';
+                    
+                    -- Check if all enemies destroyed
+                    enemies_remaining := 0;
+                    FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
+                        FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
+                            IF enemy_alive(row, col) = '1' THEN
+                                enemies_remaining := enemies_remaining + 1;
+                            END IF;
+                        END LOOP;
+                    END LOOP;
+                    
+                    IF enemies_remaining = 0 THEN
+                        IF wave_number < 3 THEN
+                            wave_number <= wave_number + 1;
                         END IF;
+                        current_state <= NEXT_WAVE;
                     END IF;
-                END LOOP;
-            END LOOP;
-            
-            -- Check if all enemies destroyed
-            enemies_remaining := 0;
-            FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
-                FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
-                    IF enemy_alive(row, col) = '1' THEN
-                        enemies_remaining := enemies_remaining + 1;
-                    END IF;
-                END LOOP;
-            END LOOP;
-            
-            IF enemies_remaining = 0 THEN
-                -- Level complete - reset enemies
-                FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
-                    FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
-                        enemy_alive(row, col) <= '1';
-                    END LOOP;
-                END LOOP;
-                enemy_x_pos <= CONV_STD_LOGIC_VECTOR(100, 11);
-                enemy_y_offset <= (OTHERS => '0');
-                enemy_direction <= '0';
-            END IF;
+                    
+                WHEN GAMEOVER =>
+                    -- Wait for reset
+                    NULL;
+            END CASE;
         END IF;
     END PROCESS;
 END Behavioral;
