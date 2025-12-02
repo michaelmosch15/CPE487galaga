@@ -31,7 +31,6 @@ ARCHITECTURE Behavioral OF galaga IS
     SIGNAL display : STD_LOGIC_VECTOR (15 DOWNTO 0); -- value to be displayed
     SIGNAL led_mpx : STD_LOGIC_VECTOR (2 DOWNTO 0); -- 7-seg multiplexing clock
     SIGNAL shoot_signal : STD_LOGIC;
-    SIGNAL shoot_prev : STD_LOGIC := '0';
     
     COMPONENT galaga_game IS
         PORT (
@@ -94,18 +93,8 @@ BEGIN
         END IF;
     END PROCESS;
     
-    -- Shoot button edge detection
-    shoot_detect : PROCESS (clk_in) IS
-    BEGIN
-        IF rising_edge(clk_in) THEN
-            shoot_prev <= btn0;
-            IF btn0 = '1' AND shoot_prev = '0' THEN
-                shoot_signal <= '1';
-            ELSE
-                shoot_signal <= '0';
-            END IF;
-        END IF;
-    END PROCESS;
+    -- Shoot button connection
+    shoot_signal <= btn0;
     
     led_mpx <= count(19 DOWNTO 17); -- 7-seg multiplexing clock
     

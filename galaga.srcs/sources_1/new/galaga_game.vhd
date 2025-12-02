@@ -188,7 +188,7 @@ BEGIN
             
             -- Move enemies (side to side, then down)
             enemy_move_counter <= enemy_move_counter + 1;
-            IF enemy_move_counter = CONV_STD_LOGIC_VECTOR(2000000, 21) THEN -- slow movement
+            IF enemy_move_counter = CONV_STD_LOGIC_VECTOR(10, 21) THEN -- slow movement
                 enemy_move_counter <= (OTHERS => '0');
                 
                 -- Check if enemies hit edge
