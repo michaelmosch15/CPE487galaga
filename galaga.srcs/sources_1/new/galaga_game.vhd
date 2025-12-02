@@ -25,7 +25,7 @@ ARCHITECTURE Behavioral OF galaga_game IS
     CONSTANT enemy_size : INTEGER := 6; -- enemy ship size
     CONSTANT bullet_size : INTEGER := 2; -- bullet size
     CONSTANT player_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(550, 11); -- player y position (bottom)
-    CONSTANT enemy_start_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(50, 11); -- top enemy row
+    -- CONSTANT enemy_start_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(50, 11); -- REPLACED BY SIGNAL
     CONSTANT bullet_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(8, 11); -- bullet speed
     CONSTANT enemy_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(2, 11); -- enemy movement speed
     CONSTANT enemy_bullet_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(4, 11); -- enemy bullet speed
@@ -44,9 +44,9 @@ ARCHITECTURE Behavioral OF galaga_game IS
     SIGNAL game_active : STD_LOGIC := '1';
     
     -- Game State
-    TYPE game_state_type IS (START, PLAY, GAMEOVER, NEXT_WAVE);
+    TYPE game_state_type IS (START, PLAY, GAMEOVER, NEXT_WAVE, FLY_IN);
     SIGNAL current_state : game_state_type := START;
-    SIGNAL wave_number : INTEGER RANGE 1 TO 3 := 1;
+    SIGNAL wave_number : INTEGER RANGE 1 TO 10 := 1; -- Increased range
     SIGNAL shoot_delay : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(60, 11);
     
     -- Player ship position
@@ -89,6 +89,12 @@ ARCHITECTURE Behavioral OF galaga_game IS
     SIGNAL enemy_direction : STD_LOGIC := '0'; -- 0 = right, 1 = left
     SIGNAL enemy_move_counter : STD_LOGIC_VECTOR(20 DOWNTO 0) := (OTHERS => '0');
     
+    -- New Signals for Fly-In and Breathing
+    SIGNAL current_start_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(50, 11);
+    SIGNAL formation_move_dir : STD_LOGIC := '0'; -- 0 = down, 1 = up (for breathing)
+    SIGNAL move_threshold : STD_LOGIC_VECTOR(20 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(5, 21);
+
+    
     -- Score
     SIGNAL score_i : STD_LOGIC_VECTOR(15 DOWNTO 0) := (OTHERS => '0');
     
@@ -128,7 +134,7 @@ BEGIN
     END PROCESS;
     
     -- Process to draw enemies
-    enemy_draw : PROCESS (enemy_x_pos, pixel_row, pixel_col, enemy_alive, enemy_is_diving, diver_active, diver_x, diver_y) IS
+    enemy_draw : PROCESS (enemy_x_pos, pixel_row, pixel_col, enemy_alive, enemy_is_diving, diver_active, diver_x, diver_y, current_start_y, enemy_y_offset) IS
         VARIABLE enemy_x, enemy_y : STD_LOGIC_VECTOR(10 DOWNTO 0);
         VARIABLE found : STD_LOGIC := '0';
     BEGIN
@@ -140,7 +146,7 @@ BEGIN
             FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
                 IF enemy_alive(row, col) = '1' AND enemy_is_diving(row, col) = '0' THEN
                     enemy_x := enemy_x_pos + CONV_STD_LOGIC_VECTOR(col * ENEMY_SPACING_X, 11);
-                    enemy_y := enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11);
+                    enemy_y := current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11);
                     
                     IF pixel_col >= enemy_x - enemy_size AND
                        pixel_col <= enemy_x + enemy_size AND
@@ -254,7 +260,9 @@ BEGIN
                     -- Reset positions
                     enemy_x_pos <= CONV_STD_LOGIC_VECTOR(100, 11);
                     enemy_y_offset <= (OTHERS => '0');
+                    current_start_y <= (OTHERS => '0'); -- Start at top for Fly-In
                     enemy_direction <= '0';
+                    formation_move_dir <= '0'; -- Start moving down
                     bullet_active <= '0';
                     diver_active <= '0';
                     eb_L_active <= '0';
@@ -262,40 +270,65 @@ BEGIN
                     eb_R_active <= '0';
                     enemy_is_diving <= (OTHERS => (OTHERS => '0'));
                     
-                    -- Set difficulty
+                    -- Set difficulty and speed
                     CASE wave_number IS
-                        WHEN 1 => shoot_delay <= CONV_STD_LOGIC_VECTOR(60, 11);
-                        WHEN 2 => shoot_delay <= CONV_STD_LOGIC_VECTOR(45, 11);
-                        WHEN 3 => shoot_delay <= CONV_STD_LOGIC_VECTOR(30, 11);
-                        WHEN OTHERS => shoot_delay <= CONV_STD_LOGIC_VECTOR(20, 11);
+                        WHEN 1 => 
+                            shoot_delay <= CONV_STD_LOGIC_VECTOR(60, 11);
+                            move_threshold <= CONV_STD_LOGIC_VECTOR(10, 21); -- Slow
+                        WHEN 2 => 
+                            shoot_delay <= CONV_STD_LOGIC_VECTOR(45, 11);
+                            move_threshold <= CONV_STD_LOGIC_VECTOR(8, 21);
+                        WHEN 3 => 
+                            shoot_delay <= CONV_STD_LOGIC_VECTOR(30, 11);
+                            move_threshold <= CONV_STD_LOGIC_VECTOR(6, 21);
+                        WHEN OTHERS => 
+                            shoot_delay <= CONV_STD_LOGIC_VECTOR(20, 11);
+                            move_threshold <= CONV_STD_LOGIC_VECTOR(4, 21); -- Fast
                     END CASE;
                     
                     -- Set Formation
                     FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
                         FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
                             IF wave_number = 1 THEN
-                                enemy_alive(row, col) <= '1'; -- Full block
+                                -- Wave 1: 3 enemies in the middle
+                                IF row = 1 AND (col >= 3 AND col <= 5) THEN
+                                    enemy_alive(row, col) <= '1';
+                                ELSE
+                                    enemy_alive(row, col) <= '0';
+                                END IF;
                             ELSIF wave_number = 2 THEN
-                                IF (row + col) MOD 2 = 0 THEN -- Checkerboard
+                                -- Wave 2: Two full rows
+                                IF row < 2 THEN
                                     enemy_alive(row, col) <= '1';
                                 ELSE
                                     enemy_alive(row, col) <= '0';
                                 END IF;
-                            ELSE -- Wave 3 (V-Shapeish)
-                                IF row = 0 OR row = 1 THEN
-                                    enemy_alive(row, col) <= '1';
-                                ELSIF row = 2 AND (col > 1 AND col < 6) THEN
-                                    enemy_alive(row, col) <= '1';
-                                ELSIF row = 3 AND (col > 2 AND col < 5) THEN
+                            ELSIF wave_number = 3 THEN
+                                -- Wave 3: Three rows
+                                IF row < 3 THEN
                                     enemy_alive(row, col) <= '1';
                                 ELSE
                                     enemy_alive(row, col) <= '0';
                                 END IF;
+                            ELSE
+                                -- Wave 4+: Full formation
+                                enemy_alive(row, col) <= '1';
                             END IF;
                         END LOOP;
                     END LOOP;
                     
-                    current_state <= PLAY;
+                    current_state <= FLY_IN;
+                    
+                WHEN FLY_IN =>
+                    -- Animate enemies flying in
+                    IF current_start_y < CONV_STD_LOGIC_VECTOR(50, 11) THEN
+                        current_start_y <= current_start_y + 1;
+                    ELSE
+                        current_state <= PLAY;
+                    END IF;
+                    
+                    -- Allow player movement during fly-in
+                    player_x_pos <= player_x;
                     
                 WHEN PLAY =>
                     -- Update player position
@@ -327,17 +360,25 @@ BEGIN
                     -- Start Dive
                     IF diver_active = '0' AND diver_timer > shoot_delay + 100 THEN
                         diver_timer <= (OTHERS => '0');
-                        -- Try to find a Bee (Row 4) to dive
-                        IF enemy_alive(4, CONV_INTEGER(random_col)) = '1' AND enemy_is_diving(4, CONV_INTEGER(random_col)) = '0' THEN
-                            diver_active <= '1';
-                            diver_row <= 4;
-                            diver_col <= CONV_INTEGER(random_col);
-                            enemy_is_diving(4, CONV_INTEGER(random_col)) <= '1';
-                            
-                            -- Set initial position
-                            diver_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X, 11);
-                            diver_y <= enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(4 * ENEMY_SPACING_Y, 11);
-                            diver_shot_fired <= '0';
+                        -- Try to find a Bee to dive (scan rows from bottom up)
+                        -- Simplified: Just check row 4 or 3 or 2 or 1 depending on wave
+                        IF enemy_alive(1, CONV_INTEGER(random_col)) = '1' AND enemy_is_diving(1, CONV_INTEGER(random_col)) = '0' THEN
+                             -- Use row 1 for wave 1
+                             diver_active <= '1';
+                             diver_row <= 1;
+                             diver_col <= CONV_INTEGER(random_col);
+                             enemy_is_diving(1, CONV_INTEGER(random_col)) <= '1';
+                             diver_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X, 11);
+                             diver_y <= current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(1 * ENEMY_SPACING_Y, 11);
+                             diver_shot_fired <= '0';
+                        ELSIF enemy_alive(0, CONV_INTEGER(random_col)) = '1' AND enemy_is_diving(0, CONV_INTEGER(random_col)) = '0' THEN
+                             diver_active <= '1';
+                             diver_row <= 0;
+                             diver_col <= CONV_INTEGER(random_col);
+                             enemy_is_diving(0, CONV_INTEGER(random_col)) <= '1';
+                             diver_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X, 11);
+                             diver_y <= current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(0 * ENEMY_SPACING_Y, 11);
+                             diver_shot_fired <= '0';
                         END IF;
                     END IF;
                     
@@ -411,18 +452,32 @@ BEGIN
                     
                     -- Move enemies
                     enemy_move_counter <= enemy_move_counter + 1;
-                    IF enemy_move_counter = CONV_STD_LOGIC_VECTOR(5, 21) THEN 
+                    IF enemy_move_counter = move_threshold THEN 
                         enemy_move_counter <= (OTHERS => '0');
                         
                         IF enemy_direction = '0' THEN -- moving right
                             IF enemy_x_pos + CONV_STD_LOGIC_VECTOR((NUM_ENEMY_COLS-1) * ENEMY_SPACING_X + enemy_size, 11) >= CONV_STD_LOGIC_VECTOR(780, 11) THEN
                                 enemy_direction <= '1';
-                                enemy_y_offset <= enemy_y_offset + CONV_STD_LOGIC_VECTOR(10, 11);
+                                -- Breathing Logic
+                                IF formation_move_dir = '0' THEN -- Moving Down
+                                    enemy_y_offset <= enemy_y_offset + CONV_STD_LOGIC_VECTOR(10, 11);
+                                    IF enemy_y_offset >= CONV_STD_LOGIC_VECTOR(100, 11) THEN
+                                        formation_move_dir <= '1'; -- Switch to Up
+                                    END IF;
+                                ELSE -- Moving Up
+                                    IF enemy_y_offset >= CONV_STD_LOGIC_VECTOR(10, 11) THEN
+                                        enemy_y_offset <= enemy_y_offset - CONV_STD_LOGIC_VECTOR(10, 11);
+                                    ELSE
+                                        enemy_y_offset <= (OTHERS => '0');
+                                        formation_move_dir <= '0'; -- Switch to Down
+                                    END IF;
+                                END IF;
+                                
                                 -- Check bottom
                                 FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
                                     FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
                                         IF enemy_alive(row, col) = '1' THEN
-                                            IF enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11) + enemy_size >= player_y - player_size THEN
+                                            IF current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11) + enemy_size >= player_y - player_size THEN
                                                 current_state <= GAMEOVER;
                                             END IF;
                                         END IF;
@@ -434,12 +489,26 @@ BEGIN
                         ELSE -- moving left
                             IF enemy_x_pos <= CONV_STD_LOGIC_VECTOR(20, 11) THEN
                                 enemy_direction <= '0';
-                                enemy_y_offset <= enemy_y_offset + CONV_STD_LOGIC_VECTOR(10, 11);
+                                -- Breathing Logic
+                                IF formation_move_dir = '0' THEN -- Moving Down
+                                    enemy_y_offset <= enemy_y_offset + CONV_STD_LOGIC_VECTOR(10, 11);
+                                    IF enemy_y_offset >= CONV_STD_LOGIC_VECTOR(100, 11) THEN
+                                        formation_move_dir <= '1'; -- Switch to Up
+                                    END IF;
+                                ELSE -- Moving Up
+                                    IF enemy_y_offset >= CONV_STD_LOGIC_VECTOR(10, 11) THEN
+                                        enemy_y_offset <= enemy_y_offset - CONV_STD_LOGIC_VECTOR(10, 11);
+                                    ELSE
+                                        enemy_y_offset <= (OTHERS => '0');
+                                        formation_move_dir <= '0'; -- Switch to Down
+                                    END IF;
+                                END IF;
+                                
                                 -- Check bottom
                                 FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
                                     FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
                                         IF enemy_alive(row, col) = '1' THEN
-                                            IF enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11) + enemy_size >= player_y - player_size THEN
+                                            IF current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11) + enemy_size >= player_y - player_size THEN
                                                 current_state <= GAMEOVER;
                                             END IF;
                                         END IF;
@@ -476,7 +545,7 @@ BEGIN
                             FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
                                 IF enemy_alive(row, col) = '1' AND enemy_is_diving(row, col) = '0' AND collision_found = '0' THEN
                                     enemy_x := enemy_x_pos + CONV_STD_LOGIC_VECTOR(col * ENEMY_SPACING_X, 11);
-                                    enemy_y := enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11);
+                                    enemy_y := current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11);
                                     
                                     IF bullet_x >= enemy_x - enemy_size AND
                                        bullet_x <= enemy_x + enemy_size AND
@@ -499,7 +568,7 @@ BEGIN
                         FOR col IN 0 TO NUM_ENEMY_COLS-1 LOOP
                             IF enemy_alive(row, col) = '1' AND collision_found = '0' THEN
                                 enemy_x := enemy_x_pos + CONV_STD_LOGIC_VECTOR(col * ENEMY_SPACING_X, 11);
-                                enemy_y := enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11);
+                                enemy_y := current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11);
                                 
                                 IF player_x_pos >= enemy_x - enemy_size - player_size AND
                                    player_x_pos <= enemy_x + enemy_size + player_size AND
@@ -523,7 +592,7 @@ BEGIN
                     END LOOP;
                     
                     IF enemies_remaining = 0 THEN
-                        IF wave_number < 3 THEN
+                        IF wave_number < 10 THEN
                             wave_number <= wave_number + 1;
                         END IF;
                         current_state <= NEXT_WAVE;
