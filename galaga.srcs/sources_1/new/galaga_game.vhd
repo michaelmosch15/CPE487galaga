@@ -118,18 +118,51 @@ ARCHITECTURE Behavioral OF galaga_game IS
     CONSTANT CHAR_V : font_char := ("10001", "10001", "10001", "10001", "10001", "01010", "00100");
     CONSTANT CHAR_SP: font_char := ("00000", "00000", "00000", "00000", "00000", "00000", "00000");
     
+    -- Starfield Signals
+    SIGNAL star_on : STD_LOGIC := '0';
+    SIGNAL star_color : STD_LOGIC_VECTOR(2 DOWNTO 0) := "111";
+    SIGNAL star_scroll_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := (OTHERS => '0');
+    SIGNAL star_speed_counter : STD_LOGIC_VECTOR(1 DOWNTO 0) := "00";
+    
 BEGIN
     -- Color Logic: Black Background
-    -- Red: Enemies and Enemy Bullets and Text
-    red <= enemy_on OR enemy_bullet_on OR text_on;
-    -- Green: Player and Player Bullets
-    green <= player_on OR bullet_on;
-    -- Blue: Off (or use for special effects later)
-    blue <= '0';
+    -- Priority: Text > Enemy/Bullet > Player > Stars
+    red <= text_on OR enemy_on OR enemy_bullet_on OR (star_on AND star_color(2) AND NOT (text_on OR enemy_on OR enemy_bullet_on OR player_on OR bullet_on));
+    green <= player_on OR bullet_on OR (star_on AND star_color(1) AND NOT (text_on OR enemy_on OR enemy_bullet_on OR player_on OR bullet_on));
+    blue <= (star_on AND star_color(0) AND NOT (text_on OR enemy_on OR enemy_bullet_on OR player_on OR bullet_on));
     
     score <= score_i;
     game_over <= '1' WHEN current_state = GAMEOVER ELSE '0';
     
+    -- Process to draw starfield
+    star_draw : PROCESS (pixel_row, pixel_col, star_scroll_y)
+        VARIABLE pseudo_rand : STD_LOGIC_VECTOR(12 DOWNTO 0);
+        VARIABLE row_scrolled : STD_LOGIC_VECTOR(10 DOWNTO 0);
+    BEGIN
+        row_scrolled := pixel_row + star_scroll_y;
+        
+        -- Simple pseudo-random hash
+        -- ((x * 3) + (y * 5)) AND 4095
+        -- Using shifts for multiplication: x*3 = (x<<1)+x, y*5 = (y<<2)+y
+        pseudo_rand := (('0' & pixel_col & '0') + ("00" & pixel_col)) + 
+                       (('0' & row_scrolled & "00") + ("000" & row_scrolled));
+                       
+        -- Check if it's a star (sparse)
+        -- We check if the lower 9 bits are all 0 (1 in 512 chance)
+        IF (pseudo_rand(8 DOWNTO 0) = "000000000") THEN
+            star_on <= '1';
+            -- Generate color from higher bits, ensure not black
+            IF pseudo_rand(11 DOWNTO 9) = "000" THEN
+                star_color <= "111"; -- White
+            ELSE
+                star_color <= pseudo_rand(11 DOWNTO 9);
+            END IF;
+        ELSE
+            star_on <= '0';
+            star_color <= "000";
+        END IF;
+    END PROCESS;
+
     -- Player ship: 16x16 Galaga-style pixel sprite
     player_draw : PROCESS (player_x_pos, pixel_row, pixel_col) IS
         CONSTANT SPR_W : INTEGER := 16;
@@ -382,6 +415,12 @@ BEGIN
         VARIABLE collision_found : STD_LOGIC;
     BEGIN
         WAIT UNTIL rising_edge(v_sync);
+        
+        -- Update Star Scroll
+        star_speed_counter <= star_speed_counter + 1;
+        IF star_speed_counter = "11" THEN -- Move every 4 frames
+            star_scroll_y <= star_scroll_y - 1; -- Move stars down
+        END IF;
         
         IF reset = '1' THEN
             current_state <= START;
