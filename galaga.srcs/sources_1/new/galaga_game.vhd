@@ -109,21 +109,58 @@ BEGIN
     score <= score_i;
     game_over <= '1' WHEN current_state = GAMEOVER ELSE '0';
     
-    -- Process to draw player ship (triangle shape)
+    -- Player ship: 16x16 Galaga-style pixel sprite
     player_draw : PROCESS (player_x_pos, pixel_row, pixel_col) IS
-        VARIABLE dx, dy : STD_LOGIC_VECTOR(10 DOWNTO 0);
+        CONSTANT SPR_W : INTEGER := 16;
+        CONSTANT SPR_H : INTEGER := 16;
+
+        TYPE sprite_row_t IS ARRAY(0 TO SPR_W-1) OF STD_LOGIC;
+        TYPE sprite_t IS ARRAY(0 TO SPR_H-1) OF sprite_row_t;
+
+        -- Approximate Galaga ship mask (1 = ship pixel)
+        CONSTANT galaga_sprite : sprite_t := (
+            -- 0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15
+            ( '0','0','0','0','0','0','0','1','1','0','0','0','0','0','0','0' ), -- 0  nose tip
+            ( '0','0','0','0','0','0','1','1','1','1','0','0','0','0','0','0' ), -- 1
+            ( '0','0','0','0','0','1','1','1','1','1','1','0','0','0','0','0' ), -- 2
+            ( '0','0','0','0','1','1','1','1','1','1','1','1','0','0','0','0' ), -- 3
+            ( '0','0','0','1','1','0','1','1','1','1','0','1','1','0','0','0' ), -- 4  wing joint
+            ( '0','0','1','1','0','0','1','1','1','1','0','0','1','1','0','0' ), -- 5
+            ( '0','1','1','0','0','0','1','1','1','1','0','0','0','1','1','0' ), -- 6
+            ( '1','1','0','0','0','0','1','1','1','1','0','0','0','0','1','1' ), -- 7  outer wings
+            ( '1','0','0','0','0','0','1','1','1','1','0','0','0','0','0','1' ), -- 8
+            ( '1','0','0','0','0','0','1','1','1','1','0','0','0','0','0','1' ), -- 9
+            ( '1','0','0','0','0','0','1','1','1','1','0','0','0','0','0','1' ), -- 10
+            ( '0','1','0','0','0','0','1','1','1','1','0','0','0','0','1','0' ), -- 11
+            ( '0','0','1','0','0','0','1','1','1','1','0','0','0','1','0','0' ), -- 12
+            ( '0','0','0','1','0','0','1','1','1','1','0','0','1','0','0','0' ), -- 13
+            ( '0','0','0','0','1','1','1','1','1','1','1','1','0','0','0','0' ), -- 14  base
+            ( '0','0','0','0','0','1','1','1','1','1','1','0','0','0','0','0' )  -- 15
+        );
+
+        VARIABLE left_x  : STD_LOGIC_VECTOR(10 DOWNTO 0);
+        VARIABLE top_y   : STD_LOGIC_VECTOR(10 DOWNTO 0);
+        VARIABLE lx, ty  : INTEGER;
+        VARIABLE sx, sy  : INTEGER;
     BEGIN
-        IF pixel_col >= player_x_pos - player_size AND
-           pixel_col <= player_x_pos + player_size AND
-           pixel_row >= player_y - player_size AND
-           pixel_row <= player_y THEN
-            dx := pixel_col - player_x_pos;
-            IF dx(10) = '1' THEN
-                dx := (NOT dx) + 1; -- absolute value
-            END IF;
-            dy := player_y - pixel_row;
-            -- Draw triangle shape
-            IF dy > dx THEN
+        player_on <= '0';
+
+        -- Compute sprite top-left
+        left_x := player_x_pos - CONV_STD_LOGIC_VECTOR(SPR_W/2, 11);
+        top_y  := player_y - CONV_STD_LOGIC_VECTOR(SPR_H, 11);
+
+        -- Quick bounds check
+        IF pixel_col >= left_x AND pixel_col < left_x + CONV_STD_LOGIC_VECTOR(SPR_W, 11) AND
+           pixel_row >= top_y  AND pixel_row  < top_y  + CONV_STD_LOGIC_VECTOR(SPR_H, 11) THEN
+
+            -- Convert to integer indices
+            lx := CONV_INTEGER(left_x);
+            ty := CONV_INTEGER(top_y);
+            sx := CONV_INTEGER(pixel_col) - lx;
+            sy := CONV_INTEGER(pixel_row) - ty;
+
+            -- Mask test
+            IF galaga_sprite(sy)(sx) = '1' THEN
                 player_on <= game_active;
             ELSE
                 player_on <= '0';
