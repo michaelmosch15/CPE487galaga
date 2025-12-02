@@ -44,8 +44,10 @@ ARCHITECTURE Behavioral OF galaga_game IS
     SIGNAL game_active : STD_LOGIC := '1';
     
     -- Game State
-    TYPE game_state_type IS (START, PLAY, GAMEOVER, NEXT_WAVE, FLY_IN);
+    TYPE game_state_type IS (START, READY_SCREEN, PLAY, GAMEOVER, NEXT_WAVE, FLY_IN);
     SIGNAL current_state : game_state_type := START;
+    SIGNAL ready_timer_counter : STD_LOGIC_VECTOR(10 DOWNTO 0) := (OTHERS => '0');
+    SIGNAL text_on : STD_LOGIC;
     SIGNAL wave_number : INTEGER RANGE 1 TO 10 := 1; -- Increased range
     SIGNAL shoot_delay : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(60, 11);
     
@@ -101,11 +103,25 @@ ARCHITECTURE Behavioral OF galaga_game IS
     -- Collision detection signals
     SIGNAL bullet_enemy_collision : STD_LOGIC := '0';
     SIGNAL enemy_player_collision : STD_LOGIC := '0';
+
+    -- Font 5x7 Definitions
+    TYPE font_char IS ARRAY(0 TO 6) OF STD_LOGIC_VECTOR(4 DOWNTO 0);
+    CONSTANT CHAR_R : font_char := ("11110", "10001", "10001", "11110", "10100", "10010", "10001");
+    CONSTANT CHAR_E : font_char := ("11111", "10000", "10000", "11110", "10000", "10000", "11111");
+    CONSTANT CHAR_A : font_char := ("01110", "10001", "10001", "11111", "10001", "10001", "10001");
+    CONSTANT CHAR_D : font_char := ("11110", "10001", "10001", "10001", "10001", "10001", "11110");
+    CONSTANT CHAR_Y : font_char := ("10001", "10001", "01010", "00100", "00100", "00100", "00100");
+    CONSTANT CHAR_EX: font_char := ("00100", "00100", "00100", "00100", "00000", "00100", "00000"); -- !
+    CONSTANT CHAR_G : font_char := ("01110", "10000", "10000", "10111", "10001", "10001", "01110");
+    CONSTANT CHAR_M : font_char := ("10001", "11011", "10101", "10001", "10001", "10001", "10001");
+    CONSTANT CHAR_O : font_char := ("01110", "10001", "10001", "10001", "10001", "10001", "01110");
+    CONSTANT CHAR_V : font_char := ("10001", "10001", "10001", "10001", "10001", "01010", "00100");
+    CONSTANT CHAR_SP: font_char := ("00000", "00000", "00000", "00000", "00000", "00000", "00000");
     
 BEGIN
     -- Color Logic: Black Background
-    -- Red: Enemies and Enemy Bullets
-    red <= enemy_on OR enemy_bullet_on;
+    -- Red: Enemies and Enemy Bullets and Text
+    red <= enemy_on OR enemy_bullet_on OR text_on;
     -- Green: Player and Player Bullets
     green <= player_on OR bullet_on;
     -- Blue: Off (or use for special effects later)
@@ -279,6 +295,84 @@ BEGIN
         enemy_bullet_on <= found;
     END PROCESS;
 
+    -- Process to draw text
+    text_draw : PROCESS (pixel_row, pixel_col, current_state)
+        VARIABLE x_rel, y_rel : INTEGER;
+        VARIABLE char_col, char_row : INTEGER;
+        VARIABLE char_idx : INTEGER;
+        VARIABLE bit_val : STD_LOGIC;
+        CONSTANT SCALE : INTEGER := 4;
+        CONSTANT CHAR_W : INTEGER := 6; -- 5 + 1 spacing
+        CONSTANT CHAR_H : INTEGER := 7;
+        
+        -- Helper to get bit from char
+        FUNCTION get_char_bit(c : font_char; r, c_idx : INTEGER) RETURN STD_LOGIC IS
+        BEGIN
+            IF c_idx >= 0 AND c_idx < 5 THEN
+                RETURN c(r)(4 - c_idx);
+            ELSE
+                RETURN '0';
+            END IF;
+        END FUNCTION;
+        
+    BEGIN
+        text_on <= '0';
+        
+        IF current_state = READY_SCREEN THEN
+            -- Draw "READY!" at (328, 286)
+            IF pixel_col >= 328 AND pixel_col < 328 + (6 * CHAR_W * SCALE) AND
+               pixel_row >= 286 AND pixel_row < 286 + (CHAR_H * SCALE) THEN
+                
+                x_rel := CONV_INTEGER(pixel_col) - 328;
+                y_rel := CONV_INTEGER(pixel_row) - 286;
+                
+                char_idx := x_rel / (CHAR_W * SCALE);
+                char_col := (x_rel MOD (CHAR_W * SCALE)) / SCALE;
+                char_row := y_rel / SCALE;
+                
+                CASE char_idx IS
+                    WHEN 0 => bit_val := get_char_bit(CHAR_R, char_row, char_col);
+                    WHEN 1 => bit_val := get_char_bit(CHAR_E, char_row, char_col);
+                    WHEN 2 => bit_val := get_char_bit(CHAR_A, char_row, char_col);
+                    WHEN 3 => bit_val := get_char_bit(CHAR_D, char_row, char_col);
+                    WHEN 4 => bit_val := get_char_bit(CHAR_Y, char_row, char_col);
+                    WHEN 5 => bit_val := get_char_bit(CHAR_EX, char_row, char_col);
+                    WHEN OTHERS => bit_val := '0';
+                END CASE;
+                
+                text_on <= bit_val;
+            END IF;
+            
+        ELSIF current_state = GAMEOVER THEN
+            -- Draw "GAME OVER" at (292, 286)
+            IF pixel_col >= 292 AND pixel_col < 292 + (9 * CHAR_W * SCALE) AND
+               pixel_row >= 286 AND pixel_row < 286 + (CHAR_H * SCALE) THEN
+                
+                x_rel := CONV_INTEGER(pixel_col) - 292;
+                y_rel := CONV_INTEGER(pixel_row) - 286;
+                
+                char_idx := x_rel / (CHAR_W * SCALE);
+                char_col := (x_rel MOD (CHAR_W * SCALE)) / SCALE;
+                char_row := y_rel / SCALE;
+                
+                CASE char_idx IS
+                    WHEN 0 => bit_val := get_char_bit(CHAR_G, char_row, char_col);
+                    WHEN 1 => bit_val := get_char_bit(CHAR_A, char_row, char_col);
+                    WHEN 2 => bit_val := get_char_bit(CHAR_M, char_row, char_col);
+                    WHEN 3 => bit_val := get_char_bit(CHAR_E, char_row, char_col);
+                    WHEN 4 => bit_val := get_char_bit(CHAR_SP, char_row, char_col);
+                    WHEN 5 => bit_val := get_char_bit(CHAR_O, char_row, char_col);
+                    WHEN 6 => bit_val := get_char_bit(CHAR_V, char_row, char_col);
+                    WHEN 7 => bit_val := get_char_bit(CHAR_E, char_row, char_col);
+                    WHEN 8 => bit_val := get_char_bit(CHAR_R, char_row, char_col);
+                    WHEN OTHERS => bit_val := '0';
+                END CASE;
+                
+                text_on <= bit_val;
+            END IF;
+        END IF;
+    END PROCESS;
+
     
     -- Main game logic process
     game_logic : PROCESS
@@ -359,7 +453,14 @@ BEGIN
                         END LOOP;
                     END LOOP;
                     
-                    current_state <= FLY_IN;
+                    current_state <= READY_SCREEN;
+                    ready_timer_counter <= (OTHERS => '0');
+                    
+                WHEN READY_SCREEN =>
+                    ready_timer_counter <= ready_timer_counter + 1;
+                    IF ready_timer_counter = CONV_STD_LOGIC_VECTOR(120, 11) THEN -- Approx 2 seconds
+                        current_state <= FLY_IN;
+                    END IF;
                     
                 WHEN FLY_IN =>
                     -- Animate enemies flying in
