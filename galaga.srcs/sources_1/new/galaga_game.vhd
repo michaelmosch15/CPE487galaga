@@ -26,7 +26,8 @@ ARCHITECTURE Behavioral OF galaga_game IS
     CONSTANT player_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(550, 11); -- player y position (bottom)
     CONSTANT enemy_start_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(50, 11); -- top enemy row
     CONSTANT bullet_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(8, 11); -- bullet speed
-    CONSTANT enemy_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(1, 11); -- enemy movement speed
+    CONSTANT enemy_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(2, 11); -- enemy movement speed
+    CONSTANT enemy_bullet_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(4, 11); -- enemy bullet speed
     
     -- Enemy formation: 5 rows x 8 columns
     CONSTANT NUM_ENEMY_ROWS : INTEGER := 5;
@@ -38,6 +39,7 @@ ARCHITECTURE Behavioral OF galaga_game IS
     SIGNAL player_on : STD_LOGIC;
     SIGNAL enemy_on : STD_LOGIC;
     SIGNAL bullet_on : STD_LOGIC;
+    SIGNAL enemy_bullet_on : STD_LOGIC;
     SIGNAL game_active : STD_LOGIC := '1';
     
     -- Player ship position
@@ -48,6 +50,13 @@ ARCHITECTURE Behavioral OF galaga_game IS
     SIGNAL bullet_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(600, 11);
     SIGNAL bullet_active : STD_LOGIC := '0';
     SIGNAL shoot_prev : STD_LOGIC := '0';
+    
+    -- Enemy Bullet
+    SIGNAL enemy_bullet_x : STD_LOGIC_VECTOR(10 DOWNTO 0) := (OTHERS => '0');
+    SIGNAL enemy_bullet_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := (OTHERS => '0');
+    SIGNAL enemy_bullet_active : STD_LOGIC := '0';
+    SIGNAL enemy_shoot_timer : STD_LOGIC_VECTOR(10 DOWNTO 0) := (OTHERS => '0');
+    SIGNAL random_col : STD_LOGIC_VECTOR(2 DOWNTO 0) := "000";
     
     -- Enemy positions and states
     TYPE enemy_array IS ARRAY(0 TO NUM_ENEMY_ROWS-1, 0 TO NUM_ENEMY_COLS-1) OF STD_LOGIC;
@@ -66,8 +75,8 @@ ARCHITECTURE Behavioral OF galaga_game IS
     
 BEGIN
     red <= NOT (player_on OR bullet_on);
-    green <= NOT enemy_on;
-    blue <= NOT (player_on OR enemy_on OR bullet_on);
+    green <= NOT (enemy_on OR enemy_bullet_on);
+    blue <= NOT (player_on OR enemy_on OR bullet_on OR enemy_bullet_on);
     score <= score_i;
     game_over <= NOT game_active;
     
@@ -153,6 +162,37 @@ BEGIN
             bullet_on <= '0';
         END IF;
     END PROCESS;
+
+    -- Process to draw enemy bullet
+    enemy_bullet_draw : PROCESS (enemy_bullet_x, enemy_bullet_y, pixel_row, pixel_col, enemy_bullet_active) IS
+        VARIABLE dx, dy : STD_LOGIC_VECTOR(10 DOWNTO 0);
+    BEGIN
+        IF enemy_bullet_active = '1' THEN
+            IF pixel_col >= enemy_bullet_x - bullet_size AND
+               pixel_col <= enemy_bullet_x + bullet_size AND
+               pixel_row >= enemy_bullet_y - bullet_size AND
+               pixel_row <= enemy_bullet_y + bullet_size THEN
+                dx := pixel_col - enemy_bullet_x;
+                IF dx(10) = '1' THEN
+                    dx := (NOT dx) + 1;
+                END IF;
+                dy := pixel_row - enemy_bullet_y;
+                IF dy(10) = '1' THEN
+                    dy := (NOT dy) + 1;
+                END IF;
+                IF (dx * dx + dy * dy) < (bullet_size * bullet_size) THEN
+                    enemy_bullet_on <= '1';
+                ELSE
+                    enemy_bullet_on <= '0';
+                END IF;
+            ELSE
+                enemy_bullet_on <= '0';
+            END IF;
+        ELSE
+            enemy_bullet_on <= '0';
+        END IF;
+    END PROCESS;
+
     
     -- Main game logic process
     game_logic : PROCESS
@@ -186,9 +226,43 @@ BEGIN
                 END IF;
             END IF;
             
+            -- Handle Enemy Shooting
+            random_col <= random_col + 1; -- Simple counter for randomness
+            enemy_shoot_timer <= enemy_shoot_timer + 1;
+            
+            IF enemy_bullet_active = '0' AND enemy_shoot_timer > CONV_STD_LOGIC_VECTOR(60, 11) THEN -- Shoot roughly once per second
+                enemy_shoot_timer <= (OTHERS => '0');
+                -- Try to find an enemy in the random column to shoot
+                FOR row IN NUM_ENEMY_ROWS-1 DOWNTO 0 LOOP
+                    IF enemy_alive(row, CONV_INTEGER(random_col)) = '1' THEN
+                        enemy_bullet_active <= '1';
+                        enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X, 11);
+                        enemy_bullet_y <= enemy_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11) + enemy_size;
+                        EXIT; -- Only one bullet
+                    END IF;
+                END LOOP;
+            END IF;
+            
+            -- Move Enemy Bullet
+            IF enemy_bullet_active = '1' THEN
+                IF enemy_bullet_y > CONV_STD_LOGIC_VECTOR(600, 11) THEN
+                    enemy_bullet_active <= '0';
+                ELSE
+                    enemy_bullet_y <= enemy_bullet_y + enemy_bullet_speed;
+                END IF;
+                
+                -- Check collision with player
+                IF enemy_bullet_x >= player_x_pos - player_size AND
+                   enemy_bullet_x <= player_x_pos + player_size AND
+                   enemy_bullet_y >= player_y - player_size AND
+                   enemy_bullet_y <= player_y + player_size THEN
+                    game_active <= '0';
+                END IF;
+            END IF;
+            
             -- Move enemies (side to side, then down)
             enemy_move_counter <= enemy_move_counter + 1;
-            IF enemy_move_counter = CONV_STD_LOGIC_VECTOR(10, 21) THEN -- slow movement
+            IF enemy_move_counter = CONV_STD_LOGIC_VECTOR(5, 21) THEN -- Faster movement (every 5 frames)
                 enemy_move_counter <= (OTHERS => '0');
                 
                 -- Check if enemies hit edge
