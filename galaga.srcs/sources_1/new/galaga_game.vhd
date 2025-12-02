@@ -103,9 +103,14 @@ ARCHITECTURE Behavioral OF galaga_game IS
     SIGNAL enemy_player_collision : STD_LOGIC := '0';
     
 BEGIN
-    red <= NOT (player_on OR bullet_on);
-    green <= NOT (enemy_on OR enemy_bullet_on OR diver_active OR eb_L_active OR eb_C_active OR eb_R_active);
-    blue <= NOT (player_on OR enemy_on OR bullet_on OR enemy_bullet_on OR diver_active OR eb_L_active OR eb_C_active OR eb_R_active);
+    -- Color Logic: Black Background
+    -- Red: Enemies and Enemy Bullets
+    red <= enemy_on OR enemy_bullet_on;
+    -- Green: Player and Player Bullets
+    green <= player_on OR bullet_on;
+    -- Blue: Off (or use for special effects later)
+    blue <= '0';
+    
     score <= score_i;
     game_over <= '1' WHEN current_state = GAMEOVER ELSE '0';
     
