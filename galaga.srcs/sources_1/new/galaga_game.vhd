@@ -48,7 +48,7 @@ ARCHITECTURE Behavioral OF galaga_game IS
     SIGNAL current_state : game_state_type := START;
     SIGNAL ready_timer_counter : STD_LOGIC_VECTOR(10 DOWNTO 0) := (OTHERS => '0');
     SIGNAL text_on : STD_LOGIC;
-    SIGNAL wave_number : INTEGER RANGE 1 TO 10 := 1; -- Increased range
+    SIGNAL wave_number : INTEGER := 1; -- Infinite levels
     SIGNAL shoot_delay : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(60, 11);
     
     -- Player ship position
@@ -117,6 +117,17 @@ ARCHITECTURE Behavioral OF galaga_game IS
     CONSTANT CHAR_O : font_char := ("01110", "10001", "10001", "10001", "10001", "10001", "01110");
     CONSTANT CHAR_V : font_char := ("10001", "10001", "10001", "10001", "10001", "01010", "00100");
     CONSTANT CHAR_SP: font_char := ("00000", "00000", "00000", "00000", "00000", "00000", "00000");
+    CONSTANT CHAR_L : font_char := ("10000", "10000", "10000", "10000", "10000", "10000", "11111");
+    CONSTANT CHAR_0 : font_char := ("01110", "10001", "10001", "10001", "10001", "10001", "01110");
+    CONSTANT CHAR_1 : font_char := ("00100", "01100", "00100", "00100", "00100", "00100", "01110");
+    CONSTANT CHAR_2 : font_char := ("01110", "10001", "00001", "00010", "00100", "01000", "11111");
+    CONSTANT CHAR_3 : font_char := ("01110", "10001", "00001", "00110", "00001", "10001", "01110");
+    CONSTANT CHAR_4 : font_char := ("00010", "00110", "01010", "10010", "11111", "00010", "00010");
+    CONSTANT CHAR_5 : font_char := ("11111", "10000", "11110", "00001", "00001", "10001", "01110");
+    CONSTANT CHAR_6 : font_char := ("01110", "10000", "10000", "11110", "10001", "10001", "01110");
+    CONSTANT CHAR_7 : font_char := ("11111", "00001", "00010", "00100", "00100", "00100", "00100");
+    CONSTANT CHAR_8 : font_char := ("01110", "10001", "10001", "01110", "10001", "10001", "01110");
+    CONSTANT CHAR_9 : font_char := ("01110", "10001", "10001", "01111", "00001", "00001", "01110");
     
     -- Starfield Signals
     SIGNAL star_on : STD_LOGIC := '0';
@@ -332,7 +343,7 @@ BEGIN
     END PROCESS;
 
     -- Process to draw text
-    text_draw : PROCESS (pixel_row, pixel_col, current_state)
+    text_draw : PROCESS (pixel_row, pixel_col, current_state, wave_number)
         VARIABLE x_rel, y_rel : INTEGER;
         VARIABLE char_col, char_row : INTEGER;
         VARIABLE char_idx : INTEGER;
@@ -340,6 +351,7 @@ BEGIN
         CONSTANT SCALE : INTEGER := 4;
         CONSTANT CHAR_W : INTEGER := 6; -- 5 + 1 spacing
         CONSTANT CHAR_H : INTEGER := 7;
+        VARIABLE digit_tens, digit_ones : INTEGER;
         
         -- Helper to get bit from char
         FUNCTION get_char_bit(c : font_char; r, c_idx : INTEGER) RETURN STD_LOGIC IS
@@ -351,8 +363,60 @@ BEGIN
             END IF;
         END FUNCTION;
         
+        -- Helper to get char from digit
+        FUNCTION get_digit_char(d : INTEGER) RETURN font_char IS
+        BEGIN
+            CASE d IS
+                WHEN 0 => RETURN CHAR_0;
+                WHEN 1 => RETURN CHAR_1;
+                WHEN 2 => RETURN CHAR_2;
+                WHEN 3 => RETURN CHAR_3;
+                WHEN 4 => RETURN CHAR_4;
+                WHEN 5 => RETURN CHAR_5;
+                WHEN 6 => RETURN CHAR_6;
+                WHEN 7 => RETURN CHAR_7;
+                WHEN 8 => RETURN CHAR_8;
+                WHEN 9 => RETURN CHAR_9;
+                WHEN OTHERS => RETURN CHAR_0;
+            END CASE;
+        END FUNCTION;
+        
     BEGIN
         text_on <= '0';
+        
+        -- Draw Level Counter (Always visible or just during play? Let's make it always visible)
+        -- "LEVEL XX" at (550, 10)
+        IF pixel_col >= 550 AND pixel_col < 550 + (8 * CHAR_W * SCALE) AND
+           pixel_row >= 10 AND pixel_row < 10 + (CHAR_H * SCALE) THEN
+            
+            x_rel := CONV_INTEGER(pixel_col) - 550;
+            y_rel := CONV_INTEGER(pixel_row) - 10;
+            
+            char_idx := x_rel / (CHAR_W * SCALE);
+            char_col := (x_rel MOD (CHAR_W * SCALE)) / SCALE;
+            char_row := y_rel / SCALE;
+            
+            digit_tens := (wave_number / 10) MOD 10;
+            digit_ones := wave_number MOD 10;
+            
+            CASE char_idx IS
+                WHEN 0 => bit_val := get_char_bit(CHAR_L, char_row, char_col);
+                WHEN 1 => bit_val := get_char_bit(CHAR_E, char_row, char_col);
+                WHEN 2 => bit_val := get_char_bit(CHAR_V, char_row, char_col);
+                WHEN 3 => bit_val := get_char_bit(CHAR_E, char_row, char_col);
+                WHEN 4 => bit_val := get_char_bit(CHAR_L, char_row, char_col);
+                WHEN 5 => bit_val := get_char_bit(CHAR_SP, char_row, char_col);
+                WHEN 6 => 
+                    IF wave_number >= 10 THEN
+                        bit_val := get_char_bit(get_digit_char(digit_tens), char_row, char_col);
+                    ELSE
+                        bit_val := '0'; -- Space
+                    END IF;
+                WHEN 7 => bit_val := get_char_bit(get_digit_char(digit_ones), char_row, char_col);
+                WHEN OTHERS => bit_val := '0';
+            END CASE;
+            text_on <= bit_val;
+        END IF;
         
         IF current_state = READY_SCREEN THEN
             -- Draw "READY!" at (328, 286)
@@ -449,20 +513,14 @@ BEGIN
                     enemy_is_diving <= (OTHERS => (OTHERS => '0'));
                     
                     -- Set difficulty and speed
-                    CASE wave_number IS
-                        WHEN 1 => 
-                            shoot_delay <= CONV_STD_LOGIC_VECTOR(60, 11);
-                            move_threshold <= CONV_STD_LOGIC_VECTOR(10, 21); -- Slow
-                        WHEN 2 => 
-                            shoot_delay <= CONV_STD_LOGIC_VECTOR(45, 11);
-                            move_threshold <= CONV_STD_LOGIC_VECTOR(8, 21);
-                        WHEN 3 => 
-                            shoot_delay <= CONV_STD_LOGIC_VECTOR(30, 11);
-                            move_threshold <= CONV_STD_LOGIC_VECTOR(6, 21);
-                        WHEN OTHERS => 
-                            shoot_delay <= CONV_STD_LOGIC_VECTOR(20, 11);
-                            move_threshold <= CONV_STD_LOGIC_VECTOR(4, 21); -- Fast
-                    END CASE;
+                    -- Infinite scaling
+                    IF wave_number <= 10 THEN
+                        shoot_delay <= CONV_STD_LOGIC_VECTOR(60 - (wave_number * 4), 11);
+                        move_threshold <= CONV_STD_LOGIC_VECTOR(10 - (wave_number / 2), 21);
+                    ELSE
+                        shoot_delay <= CONV_STD_LOGIC_VECTOR(20, 11); -- Max fire rate
+                        move_threshold <= CONV_STD_LOGIC_VECTOR(4, 21); -- Max speed
+                    END IF;
                     
                     -- Set Formation
                     FOR row IN 0 TO NUM_ENEMY_ROWS-1 LOOP
@@ -777,9 +835,7 @@ BEGIN
                     END LOOP;
                     
                     IF enemies_remaining = 0 THEN
-                        IF wave_number < 10 THEN
-                            wave_number <= wave_number + 1;
-                        END IF;
+                        wave_number <= wave_number + 1;
                         current_state <= NEXT_WAVE;
                     END IF;
                     
