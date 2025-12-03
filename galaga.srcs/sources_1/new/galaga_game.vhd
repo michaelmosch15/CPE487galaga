@@ -136,27 +136,30 @@ BEGIN
     
     -- Process to draw starfield
     star_draw : PROCESS (pixel_row, pixel_col, star_scroll_y)
-        VARIABLE pseudo_rand : STD_LOGIC_VECTOR(12 DOWNTO 0);
         VARIABLE row_scrolled : STD_LOGIC_VECTOR(10 DOWNTO 0);
+        VARIABLE seed : STD_LOGIC_VECTOR(15 DOWNTO 0);
     BEGIN
         row_scrolled := pixel_row + star_scroll_y;
         
-        -- Simple pseudo-random hash
-        -- ((x * 3) + (y * 5)) AND 4095
-        -- Using shifts for multiplication: x*3 = (x<<1)+x, y*5 = (y<<2)+y
-        pseudo_rand := (('0' & pixel_col & '0') + ("00" & pixel_col)) + 
-                       (('0' & row_scrolled & "00") + ("000" & row_scrolled));
-                       
-        -- Check if it's a star (sparse)
-        -- We check if the lower 9 bits are all 0 (1 in 512 chance)
-        IF (pseudo_rand(8 DOWNTO 0) = "000000000") THEN
+        -- Improved pseudo-random generator using XOR feedback to avoid diagonal lines
+        -- We map (x,y) to a 16-bit seed
+        -- seed = (x + y) XOR (x shifted) XOR (y shifted)
+        
+        seed := ("00000" & pixel_col) + ("00000" & row_scrolled);
+        -- XOR with rotated versions to scramble
+        seed := seed XOR ("00000" & pixel_col(4 DOWNTO 0) & pixel_col(10 DOWNTO 5));
+        seed := seed XOR ("00000" & row_scrolled(7 DOWNTO 0) & row_scrolled(10 DOWNTO 8));
+        
+        -- Further mixing (simple hash)
+        -- seed = (seed * 5) + 1
+        seed := (seed(13 DOWNTO 0) & "00") + seed + 1;
+        
+        -- Check if star exists (sparse)
+        -- Check upper bits for sparsity
+        IF seed(15 DOWNTO 8) = "00000001" THEN -- 1 in 256 chance approx
             star_on <= '1';
-            -- Generate color from higher bits, ensure not black
-            IF pseudo_rand(11 DOWNTO 9) = "000" THEN
-                star_color <= "111"; -- White
-            ELSE
-                star_color <= pseudo_rand(11 DOWNTO 9);
-            END IF;
+            star_color <= seed(2 DOWNTO 0); -- Use lower bits for color
+            IF seed(2 DOWNTO 0) = "000" THEN star_color <= "111"; END IF; -- Avoid black stars
         ELSE
             star_on <= '0';
             star_color <= "000";
