@@ -247,6 +247,159 @@ The game tracks:
 * Hit/miss ratio (accuracy percentage)
 These statistics are displayed on the results screen after game over.
 
+**Implementation Details:**
+
+**Rendering System:**
+The game uses a pixel-by-pixel rendering approach synchronized with the VGA controller. Four main drawing processes determine what color each pixel should be:
+
+1. **`player_draw` Process:** Renders the player ship sprite at the bottom of the screen. The process:
+   - Calculates the sprite's bounding box based on `player_x_pos` and fixed `player_y` (550)
+   - Uses `SPRITE_SCALE` (2) to scale the 16x16 sprite to 32x32 pixels
+   - Maps current pixel coordinates to sprite indices by dividing by the scale factor
+   - Checks the sprite bitmap array (`galaga_sprite`) to determine if the pixel should be drawn
+   - Outputs `player_on` signal when a sprite pixel is detected
+
+2. **`enemy_draw` Process:** Handles rendering of all enemy types (formation, divers, and squad):
+   - Iterates through the 6×10 enemy grid to check formation enemies
+   - Determines sprite type based on row (Walker for rows 0-1, Crab for 2-3, Bee for 4-5)
+   - Calculates each enemy's position using: `enemy_x_pos + (col × ENEMY_SPACING_X)` and `current_start_y + enemy_y_offset + (row × ENEMY_SPACING_Y)`
+   - Renders diving enemies separately using their individual `diver_x` and `diver_y` positions
+   - Renders squad attacks with leader at `squad_x/y` and wingmen offset by ±20 pixels
+   - Assigns color based on enemy type: Red (100) for Crabs, Yellow (110) for Bees, Magenta (101) for Walkers
+
+3. **`bullet_draw` Process:** Renders player bullets as circular sprites:
+   - Uses distance calculation: `(dx² + dy²) < bullet_size²` to create circular bullets
+   - Only renders when `bullet_active = '1'`
+   - Bullets move upward by subtracting `bullet_speed` (16 pixels per frame) from `bullet_y`
+
+4. **`enemy_bullet_draw` Process:** Handles both single and triple-shot enemy bullets:
+   - Single bullets from formation use `enemy_bullet_x/y` and `enemy_bullet_active`
+   - Triple shots use separate signals: `eb_L_active/C_active/R_active` with their own positions
+   - Left and right bullets spread horizontally by ±3 pixels per frame while moving down
+
+**State Machine Implementation:**
+The game logic runs in a single synchronous process (`game_logic`) that executes on every rising edge of `v_sync` (vertical sync, ~60Hz). The state machine transitions:
+
+- **START → NEXT_WAVE:** Immediately initializes game variables and sets up the first wave
+- **NEXT_WAVE → READY_SCREEN:** Configures enemy formation based on wave number, sets difficulty parameters, resets all active objects
+- **READY_SCREEN → FLY_IN:** After 120 frames (~2 seconds), begins enemy fly-in animation
+- **FLY_IN → PLAY:** When `current_start_y` reaches 50, gameplay begins
+- **PLAY → NEXT_WAVE:** When all enemies are destroyed (`enemies_remaining = 0`)
+- **PLAY → GAMEOVER:** When player lives reach 0
+- **GAMEOVER → RESULTS_SCREEN:** After 180 frames (~3 seconds)
+- **RESULTS_SCREEN:** Waits indefinitely for reset
+
+**Collision Detection Algorithm:**
+All collisions use axis-aligned bounding box (AABB) detection. For two objects at positions (x1, y1) and (x2, y2) with sizes size1 and size2:
+
+```vhdl
+IF x1 >= x2 - size2 AND x1 <= x2 + size2 AND
+   y1 >= y2 - size2 AND y1 <= y2 + size2 THEN
+    -- Collision detected
+END IF;
+```
+
+The game checks collisions in this order:
+1. Player bullet vs. Diver (before formation check to prioritize moving targets)
+2. Player bullet vs. Formation enemies (iterates through all 60 positions)
+3. Enemy bullets vs. Player (single shot and all three triple shots)
+4. Enemy ships vs. Player (formation and divers)
+
+A `collision_found` flag prevents multiple collisions from the same bullet.
+
+**Starfield Generation:**
+The starfield uses a hash-based procedural generation algorithm in the `star_draw` process:
+
+```vhdl
+seed := ((pixel_col * 129) + (row_scrolled * 743)) XOR ((pixel_col * row_scrolled) + 93);
+```
+
+Where `row_scrolled = pixel_row + star_scroll_y`. The algorithm:
+- Uses pixel coordinates as input to a deterministic hash function
+- Checks if the lower 9 bits are all zero (1/512 probability = star density)
+- Uses middle bits (11:9) for star color (RGB values)
+- Scrolls by incrementing `star_scroll_y` every 4 frames
+- Requires no memory - stars are generated on-the-fly based on position
+
+**Enemy AI Implementation:**
+
+**Formation Movement:**
+- Uses `enemy_move_counter` that increments each frame
+- When counter reaches `move_threshold` (decreases with wave number for faster movement):
+  - Moves `enemy_x_pos` by `enemy_speed` (4 pixels) in current direction
+  - When hitting screen edge, reverses `enemy_direction` and applies "breathing" logic
+  - Breathing alternates between moving formation down (`formation_move_dir = 0`) and up (`formation_move_dir = 1`)
+  - Vertical offset ranges from 0 to 100 pixels, creating expansion/contraction effect
+
+**Dive Attack Logic:**
+- Uses `diver_timer` and `random_col` (incremented each frame) for pseudo-random selection
+- When timer exceeds `shoot_delay + 20`, scans columns from bottom row upward
+- Selects first available enemy that's alive and not already diving
+- Sets `enemy_is_diving[row, col] = '1'` to mark position as occupied
+- Diver movement:
+  - Vertical: `diver_y <= diver_y + enemy_bullet_speed + 1` (7 pixels/frame)
+  - Horizontal: Homing behavior - moves 3 pixels toward `player_x_pos` each frame
+- Fires triple shot when `diver_y > 200` and `diver_shot_fired = '0'`
+- Returns to formation (or dies) when `diver_y > 600`
+
+**Squad Attack:**
+- Uses `squad_timer` that increments each frame
+- Triggers when `squad_timer > 1000` (~16 seconds) and `squad_active = '0'`
+- Squad starts at left edge (`squad_x = 0`) with random Y position
+- Movement: `squad_x <= squad_x + 4`, `squad_y <= squad_y + 2` (diagonal swoop)
+- Fires bullets at x-positions 200, 400, and 600
+- Deactivates when off-screen (`squad_x > 800` or `squad_y > 600`)
+
+**Enemy Shooting:**
+- Formation enemies use `enemy_shoot_timer` that increments each frame
+- When timer exceeds `shoot_delay` (decreases with wave number):
+  - Uses `random_col` to select a random column
+  - Finds bottom-most alive enemy in that column (scans rows 5→0)
+  - Activates `enemy_bullet_active` and sets bullet position to enemy position
+- Bullet moves: `enemy_bullet_y <= enemy_bullet_y + enemy_bullet_speed` (6 pixels/frame)
+
+**Text Rendering System:**
+The game includes a custom 5×7 pixel font system for displaying text:
+
+- **Font Definition:** Each character is a 2D array (`font_char`) with 7 rows × 5 columns
+- **`text_draw` Process:** Renders text at specific screen coordinates:
+  - Calculates character index from pixel position: `char_idx = x_rel / (CHAR_W * SCALE)`
+  - Extracts pixel within character: `char_col = (x_rel MOD (CHAR_W * SCALE)) / SCALE`
+  - Uses helper function `get_char_bit()` to retrieve bit value from font array
+  - Supports rendering: "LEVEL XX", "READY!", "GAME OVER", and results screen statistics
+  - Numbers are converted using `get_digit_char()` function that maps integers 0-9 to font arrays
+
+**Wave Progression System:**
+Each wave has a different formation pattern set in the `NEXT_WAVE` state:
+
+- **Wave 1:** 4 enemies (Row 1, Columns 3-6) - Tutorial level
+- **Wave 2:** 12 enemies (Rows 0-1, Columns 2-7) - Small formation
+- **Wave 3:** 24 enemies (Rows 0-2, Columns 1-8) - Medium formation
+- **Wave 4:** 40 enemies (Rows 0-3, all columns) - Large formation
+- **Wave 5+:** 60 enemies (All 6 rows, all 10 columns) - Full formation
+
+Difficulty scales with wave number:
+- `shoot_delay = 40 - (wave_number × 3)` for waves 1-10 (minimum 10)
+- `move_threshold = 6 - (wave_number / 3)` for waves 1-10 (minimum 2)
+- After wave 10, difficulty caps at maximum values
+
+**Color Priority System:**
+The final pixel color is determined by priority in `galaga.vhd`:
+1. **Text** (highest priority) - White when `text_on = '1'`
+2. **Enemies/Bullets** - Red, Yellow, or Magenta based on enemy type
+3. **Player/Bullet** - Green
+4. **Stars** - Various colors from hash function (lowest priority)
+
+This ensures text is always visible, enemies appear above stars, and player is clearly visible.
+
+**Synchronization:**
+The entire game logic runs synchronously with VGA vertical sync:
+- `v_sync` signal pulses once per frame (~60Hz)
+- All game state updates occur on `rising_edge(v_sync)`
+- This ensures game logic runs at a consistent 60 FPS
+- Rendering processes are combinational, calculating pixel colors based on current game state
+- No frame buffering - pixels are generated in real-time as VGA controller requests them
+
 #### vga_sync.vhd
 This module generates standard VESA 800x600 @ 60Hz VGA timing signals. It implements:
 * **Horizontal Timing:** 800 visible pixels + 40 front porch + 128 sync pulse + 88 back porch = 1056 total pixels per line
