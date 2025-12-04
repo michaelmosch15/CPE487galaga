@@ -587,32 +587,6 @@ These modules provide essential infrastructure and required no modifications for
 | `galaga_game.vhd` | Completely New | Entire game engine from scratch |
 | `galaga.xdc` | Modified | Added reset button and LED mappings |
 
-**Total New Code:** Approximately 1,500+ lines of VHDL
-**Modified Code:** ~100 lines (top-level module)
-**Reused Code:** ~200 lines (infrastructure modules)
-
-### Key Design Decisions
-
-1. **Why Keep Infrastructure Modules Unchanged?**
-   - VGA and display modules are well-tested and work correctly
-   - No need to reinvent working code
-   - Focus development effort on game logic
-
-2. **Why Create New Game Engine?**
-   - Pong's simple paddle-ball logic insufficient for Galaga
-   - Needed complex enemy AI, sprite system, state machine
-   - Complete rewrite allowed clean architecture
-
-3. **Why Add BCD Conversion?**
-   - Original score displayed in hexadecimal (confusing for users)
-   - BCD conversion ensures decimal display (0-9 per digit)
-   - Demonstrates understanding of data format conversion
-
-4. **Why Add LED Outputs?**
-   - Provides visual feedback for lives without looking at screen
-   - Demonstrates adding new outputs to existing design
-   - Shows understanding of constraint file modifications 
-
 #### galaga.vhd
 This file begins with the entity declaration definining the inputs and outputs as followed:
 * Inputs:
