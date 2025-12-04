@@ -22,9 +22,10 @@ END galaga_game;
 
 ARCHITECTURE Behavioral OF galaga_game IS
     -- Constants
-    CONSTANT player_size : INTEGER := 8; -- player ship size
-    CONSTANT enemy_size : INTEGER := 8; -- enemy ship size (16x16 sprite)
-    CONSTANT bullet_size : INTEGER := 2; -- bullet size
+    CONSTANT player_size : INTEGER := 16; -- player ship size (Increased)
+    CONSTANT enemy_size : INTEGER := 16; -- enemy ship size (Increased)
+    CONSTANT bullet_size : INTEGER := 4; -- bullet size (Increased)
+    CONSTANT SPRITE_SCALE : INTEGER := 2; -- Sprite scaling factor
     CONSTANT player_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(550, 11); -- player y position (bottom)
     -- CONSTANT enemy_start_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(50, 11); -- REPLACED BY SIGNAL
     CONSTANT bullet_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(16, 11); -- bullet speed (Increased from 8)
@@ -297,19 +298,19 @@ BEGIN
     BEGIN
         player_on <= '0';
 
-        -- Compute sprite top-left
-        left_x := player_x_pos - CONV_STD_LOGIC_VECTOR(SPR_W/2, 11);
-        top_y  := player_y - CONV_STD_LOGIC_VECTOR(SPR_H, 11);
+        -- Compute sprite top-left (Scaled)
+        left_x := player_x_pos - CONV_STD_LOGIC_VECTOR((SPR_W * SPRITE_SCALE)/2, 11);
+        top_y  := player_y - CONV_STD_LOGIC_VECTOR(SPR_H * SPRITE_SCALE, 11);
 
         -- Quick bounds check
-        IF pixel_col >= left_x AND pixel_col < left_x + CONV_STD_LOGIC_VECTOR(SPR_W, 11) AND
-           pixel_row >= top_y  AND pixel_row  < top_y  + CONV_STD_LOGIC_VECTOR(SPR_H, 11) THEN
+        IF pixel_col >= left_x AND pixel_col < left_x + CONV_STD_LOGIC_VECTOR(SPR_W * SPRITE_SCALE, 11) AND
+           pixel_row >= top_y  AND pixel_row  < top_y  + CONV_STD_LOGIC_VECTOR(SPR_H * SPRITE_SCALE, 11) THEN
 
             -- Convert to integer indices
             lx := CONV_INTEGER(left_x);
             ty := CONV_INTEGER(top_y);
-            sx := CONV_INTEGER(pixel_col) - lx;
-            sy := CONV_INTEGER(pixel_row) - ty;
+            sx := (CONV_INTEGER(pixel_col) - lx) / SPRITE_SCALE;
+            sy := (CONV_INTEGER(pixel_row) - ty) / SPRITE_SCALE;
 
             -- Mask test
             IF galaga_sprite(sy)(sx) = '1' THEN
@@ -328,6 +329,7 @@ BEGIN
         VARIABLE found : STD_LOGIC := '0';
         VARIABLE sx, sy : INTEGER;
         VARIABLE current_color : STD_LOGIC_VECTOR(2 DOWNTO 0);
+        CONSTANT HALF_SIZE : INTEGER := 8 * SPRITE_SCALE;
     BEGIN
         found := '0';
         enemy_on <= '0';
@@ -340,12 +342,12 @@ BEGIN
                     enemy_x := enemy_x_pos + CONV_STD_LOGIC_VECTOR(col * ENEMY_SPACING_X, 11);
                     enemy_y := current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(row * ENEMY_SPACING_Y, 11);
                     
-                    -- Check bounding box (16x16 centered)
-                    IF pixel_col >= enemy_x - 8 AND pixel_col < enemy_x + 8 AND
-                       pixel_row >= enemy_y - 8 AND pixel_row < enemy_y + 8 THEN
+                    -- Check bounding box (Scaled)
+                    IF pixel_col >= enemy_x - HALF_SIZE AND pixel_col < enemy_x + HALF_SIZE AND
+                       pixel_row >= enemy_y - HALF_SIZE AND pixel_row < enemy_y + HALF_SIZE THEN
                         
-                        sx := CONV_INTEGER(pixel_col - (enemy_x - 8));
-                        sy := CONV_INTEGER(pixel_row - (enemy_y - 8));
+                        sx := (CONV_INTEGER(pixel_col - (enemy_x - HALF_SIZE))) / SPRITE_SCALE;
+                        sy := (CONV_INTEGER(pixel_row - (enemy_y - HALF_SIZE))) / SPRITE_SCALE;
                         
                         IF row = 0 OR row = 1 THEN
                             -- Walker (Back) - Only after Level 2
@@ -375,11 +377,11 @@ BEGIN
         
         -- Draw Diver
         IF diver_active = '1' THEN
-            IF pixel_col >= diver_x - 8 AND pixel_col < diver_x + 8 AND
-               pixel_row >= diver_y - 8 AND pixel_row < diver_y + 8 THEN
+            IF pixel_col >= diver_x - HALF_SIZE AND pixel_col < diver_x + HALF_SIZE AND
+               pixel_row >= diver_y - HALF_SIZE AND pixel_row < diver_y + HALF_SIZE THEN
                 
-                sx := CONV_INTEGER(pixel_col - (diver_x - 8));
-                sy := CONV_INTEGER(pixel_row - (diver_y - 8));
+                sx := (CONV_INTEGER(pixel_col - (diver_x - HALF_SIZE))) / SPRITE_SCALE;
+                sy := (CONV_INTEGER(pixel_row - (diver_y - HALF_SIZE))) / SPRITE_SCALE;
                 
                 -- Determine sprite based on origin row
                 IF diver_row = 0 OR diver_row = 1 THEN
@@ -404,30 +406,30 @@ BEGIN
         -- Draw Squad (Special Attack)
         IF squad_active = '1' THEN
             -- Leader (Bee)
-            IF pixel_col >= squad_x - 8 AND pixel_col < squad_x + 8 AND
-               pixel_row >= squad_y - 8 AND pixel_row < squad_y + 8 THEN
-                sx := CONV_INTEGER(pixel_col - (squad_x - 8));
-                sy := CONV_INTEGER(pixel_row - (squad_y - 8));
+            IF pixel_col >= squad_x - HALF_SIZE AND pixel_col < squad_x + HALF_SIZE AND
+               pixel_row >= squad_y - HALF_SIZE AND pixel_row < squad_y + HALF_SIZE THEN
+                sx := (CONV_INTEGER(pixel_col - (squad_x - HALF_SIZE))) / SPRITE_SCALE;
+                sy := (CONV_INTEGER(pixel_row - (squad_y - HALF_SIZE))) / SPRITE_SCALE;
                 IF bee_sprite(sy)(sx) = '1' THEN
                     found := '1';
                     current_color := "110"; -- Yellow
                 END IF;
             END IF;
             -- Wingman 1 (Crab)
-            IF pixel_col >= squad_x - 20 - 8 AND pixel_col < squad_x - 20 + 8 AND
-               pixel_row >= squad_y - 20 - 8 AND pixel_row < squad_y - 20 + 8 THEN
-                sx := CONV_INTEGER(pixel_col - (squad_x - 20 - 8));
-                sy := CONV_INTEGER(pixel_row - (squad_y - 20 - 8));
+            IF pixel_col >= squad_x - 20 - HALF_SIZE AND pixel_col < squad_x - 20 + HALF_SIZE AND
+               pixel_row >= squad_y - 20 - HALF_SIZE AND pixel_row < squad_y - 20 + HALF_SIZE THEN
+                sx := (CONV_INTEGER(pixel_col - (squad_x - 20 - HALF_SIZE))) / SPRITE_SCALE;
+                sy := (CONV_INTEGER(pixel_row - (squad_y - 20 - HALF_SIZE))) / SPRITE_SCALE;
                 IF crab_sprite(sy)(sx) = '1' THEN
                     found := '1';
                     current_color := "100"; -- Red
                 END IF;
             END IF;
             -- Wingman 2 (Crab)
-            IF pixel_col >= squad_x - 20 - 8 AND pixel_col < squad_x - 20 + 8 AND
-               pixel_row >= squad_y + 20 - 8 AND pixel_row < squad_y + 20 + 8 THEN
-                sx := CONV_INTEGER(pixel_col - (squad_x - 20 - 8));
-                sy := CONV_INTEGER(pixel_row - (squad_y + 20 - 8));
+            IF pixel_col >= squad_x - 20 - HALF_SIZE AND pixel_col < squad_x - 20 + HALF_SIZE AND
+               pixel_row >= squad_y + 20 - HALF_SIZE AND pixel_row < squad_y + 20 + HALF_SIZE THEN
+                sx := (CONV_INTEGER(pixel_col - (squad_x - 20 - HALF_SIZE))) / SPRITE_SCALE;
+                sy := (CONV_INTEGER(pixel_row - (squad_y + 20 - HALF_SIZE))) / SPRITE_SCALE;
                 IF crab_sprite(sy)(sx) = '1' THEN
                     found := '1';
                     current_color := "100"; -- Red
@@ -1152,30 +1154,32 @@ BEGIN
                         IF enemy_bullet_active = '0' THEN
                              -- Pick shooter (using random_col from diver logic)
                              -- Find bottom-most alive enemy in that column
-                             IF enemy_alive(5, CONV_INTEGER(random_col)) = '1' THEN
-                                  enemy_bullet_active <= '1';
-                                  enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X + 8, 11);
-                                  enemy_bullet_y <= current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(5 * ENEMY_SPACING_Y + 16, 11);
-                             ELSIF enemy_alive(4, CONV_INTEGER(random_col)) = '1' THEN
-                                  enemy_bullet_active <= '1';
-                                  enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X + 8, 11);
-                                  enemy_bullet_y <= current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(4 * ENEMY_SPACING_Y + 16, 11);
-                             ELSIF enemy_alive(3, CONV_INTEGER(random_col)) = '1' THEN
-                                  enemy_bullet_active <= '1';
-                                  enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X + 8, 11);
-                                  enemy_bullet_y <= current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(3 * ENEMY_SPACING_Y + 16, 11);
-                             ELSIF enemy_alive(2, CONV_INTEGER(random_col)) = '1' THEN
-                                  enemy_bullet_active <= '1';
-                                  enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X + 8, 11);
-                                  enemy_bullet_y <= current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(2 * ENEMY_SPACING_Y + 16, 11);
-                             ELSIF enemy_alive(1, CONV_INTEGER(random_col)) = '1' THEN
-                                  enemy_bullet_active <= '1';
-                                  enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X + 8, 11);
-                                  enemy_bullet_y <= current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(1 * ENEMY_SPACING_Y + 16, 11);
-                             ELSIF enemy_alive(0, CONV_INTEGER(random_col)) = '1' THEN
-                                  enemy_bullet_active <= '1';
-                                  enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X + 8, 11);
-                                  enemy_bullet_y <= current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(0 * ENEMY_SPACING_Y + 16, 11);
+                             IF CONV_INTEGER(random_col) < NUM_ENEMY_COLS THEN
+                                 IF enemy_alive(5, CONV_INTEGER(random_col)) = '1' THEN
+                                      enemy_bullet_active <= '1';
+                                      enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X, 11);
+                                      enemy_bullet_y <= current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(5 * ENEMY_SPACING_Y + 16, 11);
+                                 ELSIF enemy_alive(4, CONV_INTEGER(random_col)) = '1' THEN
+                                      enemy_bullet_active <= '1';
+                                      enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X, 11);
+                                      enemy_bullet_y <= current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(4 * ENEMY_SPACING_Y + 16, 11);
+                                 ELSIF enemy_alive(3, CONV_INTEGER(random_col)) = '1' THEN
+                                      enemy_bullet_active <= '1';
+                                      enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X, 11);
+                                      enemy_bullet_y <= current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(3 * ENEMY_SPACING_Y + 16, 11);
+                                 ELSIF enemy_alive(2, CONV_INTEGER(random_col)) = '1' THEN
+                                      enemy_bullet_active <= '1';
+                                      enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X, 11);
+                                      enemy_bullet_y <= current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(2 * ENEMY_SPACING_Y + 16, 11);
+                                 ELSIF enemy_alive(1, CONV_INTEGER(random_col)) = '1' THEN
+                                      enemy_bullet_active <= '1';
+                                      enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X, 11);
+                                      enemy_bullet_y <= current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(1 * ENEMY_SPACING_Y + 16, 11);
+                                 ELSIF enemy_alive(0, CONV_INTEGER(random_col)) = '1' THEN
+                                      enemy_bullet_active <= '1';
+                                      enemy_bullet_x <= enemy_x_pos + CONV_STD_LOGIC_VECTOR(CONV_INTEGER(random_col) * ENEMY_SPACING_X, 11);
+                                      enemy_bullet_y <= current_start_y + enemy_y_offset + CONV_STD_LOGIC_VECTOR(0 * ENEMY_SPACING_Y + 16, 11);
+                                 END IF;
                              END IF;
                         END IF;
                     END IF;
