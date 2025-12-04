@@ -237,22 +237,49 @@ The design is modular, separating the game logic from the display drivers and in
 
 ### Finite State Machine Diagram
 
-The game uses a 7-state finite state machine to manage game flow. The following diagram shows all states and transitions:
+The game uses a finite state machine with multiple wave states to manage game flow. The following diagram shows all states and transitions:
 
 ```mermaid
 stateDiagram-v2
     [*] --> START: Reset/Power On
     
-    START --> NEXT_WAVE: Initialize Variables
+    START --> WAVE_1: Initialize Variables
     
-    NEXT_WAVE --> READY_SCREEN: Configure Formation
+    WAVE_1 --> READY_SCREEN_1: Configure Formation
+    READY_SCREEN_1 --> FLY_IN_1: 120 frames (≈2s)
+    FLY_IN_1 --> PLAY_1: current_start_y >= 50
+    PLAY_1 --> WAVE_2: All Enemies Destroyed
+    PLAY_1 --> GAMEOVER: Lives = 0
     
-    READY_SCREEN --> FLY_IN: 120 frames (≈2s)
+    WAVE_2 --> READY_SCREEN_2: Configure Formation
+    READY_SCREEN_2 --> FLY_IN_2: 120 frames (≈2s)
+    FLY_IN_2 --> PLAY_2: current_start_y >= 50
+    PLAY_2 --> WAVE_3: All Enemies Destroyed
+    PLAY_2 --> GAMEOVER: Lives = 0
     
-    FLY_IN --> PLAY: current_start_y >= 50
+    WAVE_3 --> READY_SCREEN_3: Configure Formation
+    READY_SCREEN_3 --> FLY_IN_3: 120 frames (≈2s)
+    FLY_IN_3 --> PLAY_3: current_start_y >= 50
+    PLAY_3 --> WAVE_4: All Enemies Destroyed
+    PLAY_3 --> GAMEOVER: Lives = 0
     
-    PLAY --> NEXT_WAVE: All Enemies Destroyed
-    PLAY --> GAMEOVER: Lives = 0
+    WAVE_4 --> READY_SCREEN_4: Configure Formation
+    READY_SCREEN_4 --> FLY_IN_4: 120 frames (≈2s)
+    FLY_IN_4 --> PLAY_4: current_start_y >= 50
+    PLAY_4 --> WAVE_5: All Enemies Destroyed
+    PLAY_4 --> GAMEOVER: Lives = 0
+    
+    WAVE_5 --> READY_SCREEN_5: Configure Formation
+    READY_SCREEN_5 --> FLY_IN_5: 120 frames (≈2s)
+    FLY_IN_5 --> PLAY_5: current_start_y >= 50
+    PLAY_5 --> WAVE_N: All Enemies Destroyed
+    PLAY_5 --> GAMEOVER: Lives = 0
+    
+    WAVE_N --> READY_SCREEN_N: Configure Formation
+    READY_SCREEN_N --> FLY_IN_N: 120 frames (≈2s)
+    FLY_IN_N --> PLAY_N: current_start_y >= 50
+    PLAY_N --> WAVE_N: All Enemies Destroyed (Infinite Loop)
+    PLAY_N --> GAMEOVER: Lives = 0
     
     GAMEOVER --> RESULTS_SCREEN: 180 frames (≈3s)
     
@@ -266,25 +293,55 @@ stateDiagram-v2
         - statistics = 0
     end note
     
-    note right of NEXT_WAVE
-        Configure enemy formation
-        based on wave number.
-        Set difficulty parameters.
-        Reset all positions.
+    note right of WAVE_1
+        Wave 1: 4 enemies
+        (Row 1, Cols 3-6)
+        Difficulty: Easy
     end note
     
-    note right of READY_SCREEN
+    note right of WAVE_2
+        Wave 2: 12 enemies
+        (Rows 0-1, Cols 2-7)
+        Difficulty: Easy-Medium
+    end note
+    
+    note right of WAVE_3
+        Wave 3: 24 enemies
+        (Rows 0-2, Cols 1-8)
+        Difficulty: Medium
+    end note
+    
+    note right of WAVE_4
+        Wave 4: 40 enemies
+        (Rows 0-3, all cols)
+        Difficulty: Medium-Hard
+    end note
+    
+    note right of WAVE_5
+        Wave 5: 60 enemies
+        (All 6 rows, all cols)
+        Difficulty: Hard
+    end note
+    
+    note right of WAVE_N
+        Wave 6+: Full formation
+        (60 enemies)
+        Difficulty: Maximum
+        Infinite waves
+    end note
+    
+    note right of READY_SCREEN_1
         Display "READY!" message.
         Wait 2 seconds.
     end note
     
-    note right of FLY_IN
+    note right of FLY_IN_1
         Animate enemies entering
         from top of screen.
         current_start_y: 0 → 50
     end note
     
-    note right of PLAY
+    note right of PLAY_1
         Active gameplay:
         - Player movement
         - Shooting
@@ -309,30 +366,39 @@ stateDiagram-v2
 
 **State Descriptions:**
 - **START:** Initial state, resets all game variables (score, wave, lives, statistics)
-- **NEXT_WAVE:** Configures enemy formation based on wave number, sets difficulty parameters, resets positions
-- **READY_SCREEN:** Displays "READY!" message, waits 2 seconds (120 frames at 60Hz)
-- **FLY_IN:** Animates enemies entering from top of screen (current_start_y: 0 → 50)
-- **PLAY:** Active gameplay state where all game logic executes (movement, shooting, collisions, AI)
+- **WAVE_1 through WAVE_5:** Individual wave setup states that configure enemy formation based on wave number, set difficulty parameters, and reset positions
+- **WAVE_N:** Represents waves 6 and beyond (infinite waves), all with full 60-enemy formation
+- **READY_SCREEN_X:** Displays "READY!" message for wave X, waits 2 seconds (120 frames at 60Hz)
+- **FLY_IN_X:** Animates enemies entering from top of screen for wave X (current_start_y: 0 → 50)
+- **PLAY_X:** Active gameplay state for wave X where all game logic executes (movement, shooting, collisions, AI)
 - **GAMEOVER:** Displays "GAME OVER" message, waits 3 seconds (180 frames)
 - **RESULTS_SCREEN:** Shows statistics (score, shots, hits, accuracy), waits for reset
 
 **State Transition Conditions:**
-- START → NEXT_WAVE: Immediate (automatic initialization)
-- NEXT_WAVE → READY_SCREEN: After formation configuration complete
-- READY_SCREEN → FLY_IN: After 120 frames (ready_timer_counter = 120)
-- FLY_IN → PLAY: When current_start_y >= 50 (enemies in position)
-- PLAY → NEXT_WAVE: When enemies_remaining = 0 (wave cleared)
-- PLAY → GAMEOVER: When lives_count = 0 (player defeated)
+- START → WAVE_1: Immediate (automatic initialization)
+- WAVE_X → READY_SCREEN_X: After formation configuration complete for wave X
+- READY_SCREEN_X → FLY_IN_X: After 120 frames (ready_timer_counter = 120)
+- FLY_IN_X → PLAY_X: When current_start_y >= 50 (enemies in position)
+- PLAY_X → WAVE_X+1: When enemies_remaining = 0 (wave X cleared, move to next wave)
+- PLAY_X → GAMEOVER: When lives_count = 0 (player defeated, from any wave)
+- WAVE_5 → WAVE_N: After wave 5, subsequent waves use WAVE_N state (infinite loop)
+- PLAY_N → WAVE_N: When enemies_remaining = 0 (wave cleared, loop back for next wave)
 - GAMEOVER → RESULTS_SCREEN: After 180 frames (game_over_timer > 180)
 - RESULTS_SCREEN → START: When reset button (btnu) pressed
 
 **Boolean Logic in State Machine:**
 The FSM uses combinational logic to determine state transitions:
-- `IF enemies_remaining = 0 THEN next_state = NEXT_WAVE`
-- `IF lives_count = 0 THEN next_state = GAMEOVER`
-- `IF ready_timer_counter = 120 THEN next_state = FLY_IN`
-- `IF current_start_y >= 50 THEN next_state = PLAY`
+- `IF enemies_remaining = 0 AND wave_number < 6 THEN next_state = WAVE_(wave_number + 1)`
+- `IF enemies_remaining = 0 AND wave_number >= 6 THEN next_state = WAVE_N` (infinite loop)
+- `IF lives_count = 0 THEN next_state = GAMEOVER` (from any PLAY state)
+- `IF ready_timer_counter = 120 THEN next_state = FLY_IN_X` (for current wave X)
+- `IF current_start_y >= 50 THEN next_state = PLAY_X` (for current wave X)
 - `IF reset = '1' THEN next_state = START`
+- `IF wave_number = 1 THEN formation = WAVE_1_PATTERN`
+- `IF wave_number = 2 THEN formation = WAVE_2_PATTERN`
+- `IF wave_number = 3 THEN formation = WAVE_3_PATTERN`
+- `IF wave_number = 4 THEN formation = WAVE_4_PATTERN`
+- `IF wave_number >= 5 THEN formation = FULL_FORMATION`
 
 ```mermaid
 graph TD
