@@ -26,7 +26,7 @@ ARCHITECTURE Behavioral OF galaga_game IS
     CONSTANT bullet_size : INTEGER := 2; -- bullet size
     CONSTANT player_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(550, 11); -- player y position (bottom)
     -- CONSTANT enemy_start_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(50, 11); -- REPLACED BY SIGNAL
-    CONSTANT bullet_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(8, 11); -- bullet speed
+    CONSTANT bullet_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(16, 11); -- bullet speed (Increased from 8)
     CONSTANT enemy_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(2, 11); -- enemy movement speed
     CONSTANT enemy_bullet_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(4, 11); -- enemy bullet speed
     
@@ -166,8 +166,8 @@ BEGIN
         seed := (seed(13 DOWNTO 0) & "00") + seed + 1;
         
         -- Check if star exists (sparse)
-        -- Check upper bits for sparsity
-        IF seed(15 DOWNTO 8) = "00000001" THEN -- 1 in 256 chance approx
+        -- Check upper bits for sparsity (Increased sparsity to approx 1 in 2048)
+        IF seed(15 DOWNTO 5) = "00000000001" THEN 
             star_on <= '1';
             star_color <= seed(2 DOWNTO 0); -- Use lower bits for color
             IF seed(2 DOWNTO 0) = "000" THEN star_color <= "111"; END IF; -- Avoid black stars
