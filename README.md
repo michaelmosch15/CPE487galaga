@@ -51,28 +51,28 @@ The design is modular, separating the game logic from the display drivers and in
 ```mermaid
 graph TD
     subgraph Inputs
-        Btn[Buttons (L, R, Fire, Reset)]
-        Clk[100 MHz System Clock]
+        Btn["Buttons (L, R, Fire, Reset)"]
+        Clk["100 MHz System Clock"]
     end
 
     subgraph FPGA_Logic
-        ClkWiz[Clock Wizard\n(100MHz -> 25MHz)]
+        ClkWiz["Clock Wizard\n(100MHz -> 25MHz)"]
         
         subgraph Game_Core
-            FSM[Finite State Machine\n(Start, Play, Over)]
-            Physics[Physics Engine\n(Movement, Collision)]
-            AI[Enemy AI\n(Timers, Patterns)]
-            Renderer[Sprite Renderer\n(Bitmaps, Color Mux)]
+            FSM["Finite State Machine\n(Start, Play, Over)"]
+            Physics["Physics Engine\n(Movement, Collision)"]
+            AI["Enemy AI\n(Timers, Patterns)"]
+            Renderer["Sprite Renderer\n(Bitmaps, Color Mux)"]
         end
         
-        VGA[VGA Controller\n(Sync Signals, Counters)]
-        Seg7[7-Segment Controller\n(Score Display)]
+        VGA["VGA Controller\n(Sync Signals, Counters)"]
+        Seg7["7-Segment Controller\n(Score Display)"]
     end
 
     subgraph Outputs
-        Monitor[VGA Monitor\n(800x600 RGB)]
-        Display[7-Segment Display\n(Score)]
-        LEDs[Board LEDs\n(Debug/Status)]
+        Monitor["VGA Monitor\n(800x600 RGB)"]
+        Display["7-Segment Display\n(Score)"]
+        LEDs["Board LEDs\n(Debug/Status)"]
     end
 
     Clk --> ClkWiz
