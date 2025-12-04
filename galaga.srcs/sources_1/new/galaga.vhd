@@ -15,6 +15,7 @@ ENTITY galaga IS
         btnr : IN STD_LOGIC; -- move right
         btn0 : IN STD_LOGIC; -- shoot
         btnu : IN STD_LOGIC; -- reset
+        led : OUT STD_LOGIC_VECTOR (15 DOWNTO 0); -- LEDs
         SEG7_anode : OUT STD_LOGIC_VECTOR (7 DOWNTO 0); -- anodes of four 7-seg displays
         SEG7_seg : OUT STD_LOGIC_VECTOR (6 DOWNTO 0)
     ); 
@@ -32,6 +33,7 @@ ARCHITECTURE Behavioral OF galaga IS
     SIGNAL display : STD_LOGIC_VECTOR (15 DOWNTO 0); -- value to be displayed
     SIGNAL led_mpx : STD_LOGIC_VECTOR (2 DOWNTO 0); -- 7-seg multiplexing clock
     SIGNAL shoot_signal : STD_LOGIC;
+    SIGNAL lives_out : STD_LOGIC_VECTOR(2 DOWNTO 0);
     
     COMPONENT galaga_game IS
         PORT (
@@ -45,6 +47,7 @@ ARCHITECTURE Behavioral OF galaga IS
             green : OUT STD_LOGIC;
             blue : OUT STD_LOGIC;
             score : OUT STD_LOGIC_VECTOR(15 DOWNTO 0);
+            lives : OUT STD_LOGIC_VECTOR(2 DOWNTO 0);
             game_over : OUT STD_LOGIC
         );
     END COMPONENT;
@@ -118,8 +121,15 @@ BEGIN
         green => S_green, 
         blue => S_blue,
         score => display,
+        lives => lives_out,
         game_over => OPEN
     );
+    
+    -- LED Logic
+    led(15) <= '1' WHEN lives_out >= "011" ELSE '0';
+    led(14) <= '1' WHEN lives_out >= "010" ELSE '0';
+    led(13) <= '1' WHEN lives_out >= "001" ELSE '0';
+    led(12 DOWNTO 0) <= (OTHERS => '0');
     
     -- Instantiate VGA sync component
     vga_driver : vga_sync
