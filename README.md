@@ -126,6 +126,41 @@ graph TD
 *   **`vga_sync.vhd`:** Generates standard VESA 800x600 timing signals. It provides the current `pixel_row` and `pixel_col` to the game engine, which determines the color of that pixel in real-time.
 *   **`leddec16.vhd`:** Multiplexes the 4-digit score onto the 7-segment display.
 
+## Modifications
+We began with the base code from Lab 6, which was Pong. Using this starter code allowed us to easily implement the game. We kept `vga_sync.vhd`, `leddec16.vhd`, `clk_wiz_0.vhd`, and `clk_wiz_0_clk_wiz.vhd` unchanged. This keeps the functionalities of the system and display clock, the LED display, and VGA timing signals. The constraint file, `pong.xdc`, was renamed to `galaga.xdc`.
+
+### Constraint File Modifications
+Within `galaga.xdc`, we implemented the mappings for an additional button. We mapped the up button to be used for our restart button. We also added the mappings for the LED outputs. The LED outputs are used to display the lives remaining. 
+
+### Galaga Modifications
+The file organization from Pong was used to implement Galaga. In the Pong game, there was the top level file named `pong.vhd` and the game mechanics were within a file named `bat_n_ball.vhd`. Other than the file structure, these files were almost entirely changed. 
+
+#### galaga.vhd
+This file begins with the entity declaration definining the inputs and outputs as followed:
+* Inputs:
+   * `clk_in`: System clock
+   * `btnl`, `btnr`, `btn0`, `btnu`: Buttons (left, right, shoot, reset)
+* Outputs:
+   * `VGA_red/green/blue`: VGA color (4 bit vectors)
+   * `VGA_hsync`, `VGA_vsync`: VGA sync signals
+   * `led`: LEDs for lives indicator (16 bit vectors)
+   * `SEG7_anode`, `SEG7_seg`: 7-segment display control
+
+ Within the architecture, many internal signals were declared:
+ * `pxl_clk`: Pixel clock
+ * `S_red/green/blue`: Single bit color from game
+ * `S_red_vec/green_vec/blue_vec`: 4-bit color vectors for VGA
+ * `S_vsync`: Vertical sync from VGA module.
+ * `S_pixel_row/col`: Current pixel coordinates
+ * `player_pos`: Player X position
+ * `count`: Counter for debouncing and multiplexing
+ * `display`: BCD score for 7-segment display
+ * `score_binary`: Binary score from game
+ * `led_mpx`: Multiplexing selector for 7-segment digits
+ * `shoot_signal`: Shoot button signal
+ * `lives_out`: Lives count from game
+
+
 ## Required Hardware
 *   **FPGA:** Digilent Nexys A7-100T (Artix-7).
 *   **Display:** Standard VGA Monitor (supports 800x600 @ 60Hz).
