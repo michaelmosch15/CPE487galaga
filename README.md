@@ -1,86 +1,138 @@
-# Final Project: Video Game Galaga
+# Final Project: Video Game Galaga (CPE 487)
 
-* This project implements a simplified version of the classic arcade game **Galaga** on the Digilent Nexys A7-100T FPGA board using VHDL.
-  * The project utilizes the VGA interface to display the game state on a monitor
+This project implements a sophisticated recreation of the arcade classic **Galaga** on the Digilent Nexys A7-100T FPGA board. Written entirely in VHDL, the system features a custom VGA graphics engine, complex enemy AI, sprite-based rendering, and a finite state machine (FSM) game loop.
 
-## Project Description & Behavior
+The project demonstrates advanced digital logic design concepts including:
+*   **VGA Signal Generation:** Custom timing logic for 800x600 @ 60Hz resolution.
+*   **Sprite Rendering:** Pixel-perfect bitmap rendering for the player and multiple enemy types.
+*   **Finite State Machines:** Managing game states (Start, Play, Next Wave, Game Over, Results).
+*   **Pseudo-Random Number Generation (PRNG):** Using hash-based algorithms for starfield generation and enemy attack patterns.
+*   **Collision Detection:** Real-time bounding box checks for multiple moving objects.
 
-The **Galaga** game consists of a player-controlled ship, a formation of enemy ships, and projectiles.
+## Detailed Game Mechanics
 
-*   **Player Ship:** Represented by a triangle at the bottom of the screen.
-    *   **Movement:** Controlled by `BTNL` (Left) and `BTNR` (Right).
-    *   **Shooting:** `BTN0` fires a projectile upwards.
-*   **Enemies:** A grid (5 rows x 8 columns) of red blocks starting at the top.
-    *   **Movement:** The formation moves horizontally until it hits the screen edge, then drops down and reverses direction.
-*   **Game Logic (`galaga_game.vhd`):**
-    *   **Collision Detection:**
-        *   **Bullet vs Enemy:** If a bullet intersects with an enemy's coordinates, the enemy is disabled (disappears), the bullet resets, and the score increases by 10.
-        *   **Enemy vs Player:** If an enemy touches the player, the game ends.
-        *   **Enemy vs Bottom:** If the enemy formation reaches the player's vertical level, the game ends.
-    *   **Score:** The current score is output to the 7-segment display.
-    *   **Win Condition:** If all enemies are destroyed, the level resets (enemies respawn).
+### 1. The Player
+The player controls a fighter ship at the bottom of the screen.
+*   **Movement:** Smooth horizontal movement using `BTNL` and `BTNR`.
+*   **Weaponry:** A rapid-fire cannon (`BTN0`) capable of destroying enemies in a single hit.
+*   **Lives:** The player starts with 3 lives. A life is lost upon collision with an enemy ship or an enemy projectile.
 
-### System Block Diagram
+### 2. The Enemy Fleet
+The core of the game is the enemy formation, which evolves in difficulty.
+*   **Formation Grid:** A 6-row by 10-column grid of enemies.
+*   **Enemy Classes:**
+    *   **Bees (Yellow):** Agile units in the front rows (Rows 4-5).
+    *   **Crabs (Red):** The bulk of the force in the middle rows (Rows 2-3).
+    *   **Walkers (Magenta):** Elite units in the back rows (Rows 0-1), appearing in later waves.
+*   **Dynamic Behaviors:**
+    *   **"Breathing" Formation:** The entire grid expands and contracts vertically while moving horizontally, mimicking the organic movement of the original game.
+    *   **Dive Attacks:** Individual enemies will break formation and swoop down towards the player in a curve.
+    *   **Squad Fly-Ins:** A "Squad Leader" (Bee) accompanied by two "Wingmen" (Crabs) will occasionally fly in from the side of the screen in a coordinated attack pattern.
+    *   **Enemy Fire:** Enemies utilize two types of attacks:
+        *   **Single Shot:** Randomly fired from the formation based on a difficulty timer.
+        *   **Triple Shot:** Fired by diving enemies, spreading out to cover a wide area.
 
-The system is composed of several VHDL modules working together:
+### 3. Game Progression & Scoring
+*   **Infinite Waves:** The game has no end. When a wave is cleared, a new wave begins with increased difficulty (faster movement, higher fire rate).
+*   **Scoring System:**
+    *   **Formation Kill:** 10 Points.
+    *   **Diver Kill:** 50 Points (Bonus for hitting a moving target).
+*   **Results Screen:** Upon Game Over, a detailed statistics screen displays:
+    *   Total Score
+    *   Shots Fired
+    *   Number of Hits
+    *   Hit/Miss Ratio (Accuracy %)
 
-`mermaid
+## Technical Implementation
+
+### System Architecture
+The design is modular, separating the game logic from the display drivers and input handling.
+
+```mermaid
 graph TD
-    Input[Buttons & Clock] --> Top[galaga.vhd (Top Level)]
-    Top --> ClockWiz[clk_wiz_0 (100MHz -> 25MHz)]
-    Top --> GameLogic[galaga_game.vhd (Game State & Physics)]
-    Top --> VGA[vga_sync.vhd (VGA Timing)]
-    Top --> SevenSeg[leddec16.vhd (Score Display)]
-    
-    GameLogic -- RGB Signals --> Top
-    GameLogic -- Score --> Top
-    ClockWiz -- Pixel Clock --> VGA
-    VGA -- Sync Signals --> Top
-` 
+    subgraph Inputs
+        Btn[Buttons (L, R, Fire, Reset)]
+        Clk[100 MHz System Clock]
+    end
 
-*   **_galaga_game_**: The core logic engine. It maintains the state of the player, all 40 enemies, and the bullet. It calculates positions based on the frame refresh (Vsync) and handles all collision logic.
-*   **_vga_sync_**: Generates the standard VGA timing signals (HSync, VSync) and pixel coordinates (Row, Col) for an 800x600 resolution.
-*   **_galaga_**: The top-level wrapper that connects the physical inputs (Buttons, Clock) to the internal modules and maps the outputs to the VGA port and 7-segment display.
+    subgraph FPGA_Logic
+        ClkWiz[Clock Wizard\n(100MHz -> 25MHz)]
+        
+        subgraph Game_Core
+            FSM[Finite State Machine\n(Start, Play, Over)]
+            Physics[Physics Engine\n(Movement, Collision)]
+            AI[Enemy AI\n(Timers, Patterns)]
+            Renderer[Sprite Renderer\n(Bitmaps, Color Mux)]
+        end
+        
+        VGA[VGA Controller\n(Sync Signals, Counters)]
+        Seg7[7-Segment Controller\n(Score Display)]
+    end
+
+    subgraph Outputs
+        Monitor[VGA Monitor\n(800x600 RGB)]
+        Display[7-Segment Display\n(Score)]
+        LEDs[Board LEDs\n(Debug/Status)]
+    end
+
+    Clk --> ClkWiz
+    ClkWiz --> VGA
+    Btn --> Game_Core
+    VGA -- Pixel Coordinates --> Game_Core
+    Game_Core -- RGB Data --> VGA
+    Game_Core -- Score Data --> Seg7
+    VGA --> Monitor
+    Seg7 --> Display
+``` 
+
+### Key Modules
+*   **`galaga.vhd` (Top Level):** Instantiates all sub-modules and maps physical ports. Handles the global reset and clock distribution.
+*   **`galaga_game.vhd` (Game Engine):** The largest module (approx. 1300 lines). It contains:
+    *   **Sprite Bitmaps:** Constant arrays defining the 16x16 pixel art for all characters.
+    *   **Starfield Generator:** A mathematical hash function based on pixel coordinates to generate a scrolling star background without using memory.
+    *   **Object Tracking:** Arrays and signals to track the position and status (`alive`/`dead`) of 60+ entities simultaneously.
+*   **`vga_sync.vhd`:** Generates standard VESA 800x600 timing signals. It provides the current `pixel_row` and `pixel_col` to the game engine, which determines the color of that pixel in real-time.
+*   **`leddec16.vhd`:** Multiplexes the 4-digit score onto the 7-segment display.
 
 ## Required Hardware
-*   Digilent Nexys A7-100T FPGA Board
-*   VGA Monitor
-*   VGA Cable (or HDMI with active VGA adapter)
-*   Micro-USB cable for programming/power
+*   **FPGA:** Digilent Nexys A7-100T (Artix-7).
+*   **Display:** Standard VGA Monitor (supports 800x600 @ 60Hz).
+*   **Connection:** VGA Cable (or HDMI with active VGA adapter).
+*   **Power/Prog:** Micro-USB cable.
 
 ## Instructions to Run the Project
 
-### 1. Create a new RTL project _galaga_ in Vivado
+### 1. Project Setup in Vivado
+1.  Create a new RTL project named **galaga**.
+2.  Select the target board: **Nexys A7-100T**.
+3.  Add the following source files (VHDL):
+    *   `galaga.vhd`
+    *   `galaga_game.vhd`
+    *   `vga_sync.vhd`
+    *   `leddec16.vhd`
+    *   `clk_wiz_0.vhd` & `clk_wiz_0_clk_wiz.vhd`
+4.  Add the constraint file:
+    *   `galaga.xdc`
 
-*   Create six source files of file type VHDL:
-    *   **_clk_wiz_0.vhd_** & **_clk_wiz_0_clk_wiz.vhd_**: Clock generation (same as Lab 3).
-    *   **_leddec16.vhd_**: 7-segment decoder (same as Lab 5).
-    *   **_vga_sync.vhd_**: VGA timing generator.
-    *   **_galaga_game.vhd_**: The main game logic and rendering.
-    *   **_galaga.vhd_**: The top-level module.
+### 2. Synthesis & Implementation
+1.  Click **Run Synthesis** and wait for completion.
+2.  Click **Run Implementation**.
+3.  Click **Generate Bitstream**.
 
-*   Create a new constraint file of file type XDC called **_galaga.xdc_**.
+### 3. Programming
+1.  Connect the Nexys A7 board to your PC via USB.
+2.  Open **Hardware Manager** > **Open Target** > **Auto Connect**.
+3.  Click **Program Device** and select the `galaga.bit` file.
 
-*   Select the **Nexys A7-100T** board when prompted.
+### 4. Controls
+| Button | Action |
+| :--- | :--- |
+| **BTNL** | Move Ship Left |
+| **BTNR** | Move Ship Right |
+| **BTN0 (Center)** | Fire Laser |
+| **BTNU (Up)** | Reset Game |
 
-*   Copy the provided VHDL code into the respective source files and the constraints into `galaga.xdc`.
-
-### 2. Run Synthesis and Implementation
-
-*   Click **Run Synthesis** in the Flow Navigator.
-*   Once complete, click **Run Implementation**.
-
-### 3. Generate Bitstream and Program Device
-
-*   Click **Generate Bitstream**.
-*   Connect your Nexys A7 board via USB and turn it on.
-*   Open **Hardware Manager** -> **Open Target** -> **Auto Connect**.
-*   Click **Program Device** and select the generated `.bit` file.
-
-### 4. How to Play
-
-1.  **Start:** The game starts immediately upon programming.
-2.  **Move:** Use **BTNL** to move Left and **BTNR** to move Right.
-3.  **Fire:** Press **BTN0** (Center Button) to shoot.
-4.  **Goal:** Destroy all red enemy blocks before they touch you or reach the bottom of the screen.
-5.  **Score:** Watch your score increase on the 7-segment display!
+## Future Improvements
+*   Add sound effects using the PWM audio output.
+*   Implement a high-score retention system.
+*   Add "Challenging Stages" (bonus rounds) similar to the original arcade game.
