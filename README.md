@@ -239,41 +239,72 @@ The design is modular, separating the game logic from the display drivers and in
 
 The game uses a 7-state finite state machine to manage game flow. The following diagram shows all states and transitions:
 
-```
-                     [RESET]
-                        |
-                        v
-                    [START]
-                        |
-                        | (Initialize variables)
-                        v
-                 [NEXT_WAVE]
-                        |
-                        | (Configure formation)
-                        v
-               [READY_SCREEN]
-                        |
-                        | (120 frames ≈ 2s)
-                        v
-                   [FLY_IN]
-                        |
-                        | (current_start_y = 50)
-                        v
-                    [PLAY]
-                        |
-         +--------------+--------------+
-         |                            |
-         | (All enemies destroyed)    | (Lives = 0)
-         v                            v
-   [NEXT_WAVE]                  [GAMEOVER]
-         |                            |
-         |                            | (180 frames ≈ 3s)
-         |                            v
-         |                    [RESULTS_SCREEN]
-         |                            |
-         |                            | (Wait for reset)
-         |                            |
-         +----------------------------+
+```mermaid
+stateDiagram-v2
+    [*] --> START: Reset/Power On
+    
+    START --> NEXT_WAVE: Initialize Variables
+    
+    NEXT_WAVE --> READY_SCREEN: Configure Formation
+    
+    READY_SCREEN --> FLY_IN: 120 frames (≈2s)
+    
+    FLY_IN --> PLAY: current_start_y >= 50
+    
+    PLAY --> NEXT_WAVE: All Enemies Destroyed
+    PLAY --> GAMEOVER: Lives = 0
+    
+    GAMEOVER --> RESULTS_SCREEN: 180 frames (≈3s)
+    
+    RESULTS_SCREEN --> START: Reset Button Pressed
+    
+    note right of START
+        Reset all game variables:
+        - score = 0
+        - wave = 1
+        - lives = 3
+        - statistics = 0
+    end note
+    
+    note right of NEXT_WAVE
+        Configure enemy formation
+        based on wave number.
+        Set difficulty parameters.
+        Reset all positions.
+    end note
+    
+    note right of READY_SCREEN
+        Display "READY!" message.
+        Wait 2 seconds.
+    end note
+    
+    note right of FLY_IN
+        Animate enemies entering
+        from top of screen.
+        current_start_y: 0 → 50
+    end note
+    
+    note right of PLAY
+        Active gameplay:
+        - Player movement
+        - Shooting
+        - Enemy AI
+        - Collisions
+        - Scoring
+    end note
+    
+    note right of GAMEOVER
+        Display "GAME OVER"
+        message. Wait 3 seconds.
+    end note
+    
+    note right of RESULTS_SCREEN
+        Display statistics:
+        - Total Score
+        - Shots Fired
+        - Number of Hits
+        - Hit/Miss Ratio
+    end note
 ```
 
 **State Descriptions:**
