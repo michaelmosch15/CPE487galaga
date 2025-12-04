@@ -30,7 +30,8 @@ ARCHITECTURE Behavioral OF galaga IS
     SIGNAL S_pixel_row, S_pixel_col : STD_LOGIC_VECTOR (10 DOWNTO 0);
     SIGNAL player_pos : STD_LOGIC_VECTOR (10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(400, 11);
     SIGNAL count : STD_LOGIC_VECTOR (20 DOWNTO 0);
-    SIGNAL display : STD_LOGIC_VECTOR (15 DOWNTO 0); -- value to be displayed
+    SIGNAL display : STD_LOGIC_VECTOR (15 DOWNTO 0); -- value to be displayed (BCD format)
+    SIGNAL score_binary : STD_LOGIC_VECTOR (15 DOWNTO 0); -- binary score from game
     SIGNAL led_mpx : STD_LOGIC_VECTOR (2 DOWNTO 0); -- 7-seg multiplexing clock
     SIGNAL shoot_signal : STD_LOGIC;
     SIGNAL lives_out : STD_LOGIC_VECTOR(2 DOWNTO 0);
@@ -120,7 +121,7 @@ BEGIN
         red => S_red, 
         green => S_green, 
         blue => S_blue,
-        score => display,
+        score => score_binary,
         lives => lives_out,
         game_over => OPEN
     );
@@ -154,6 +155,29 @@ BEGIN
         clk_in1 => clk_in,
         clk_out1 => pxl_clk
     );
+    
+    -- Binary to BCD conversion process
+    binary_to_bcd : PROCESS (score_binary)
+        VARIABLE bin_val : INTEGER;
+        VARIABLE bcd_val : STD_LOGIC_VECTOR(15 DOWNTO 0);
+        VARIABLE digit0, digit1, digit2, digit3 : INTEGER;
+    BEGIN
+        bin_val := CONV_INTEGER(score_binary);
+        
+        -- Extract decimal digits
+        digit0 := bin_val MOD 10;
+        digit1 := (bin_val / 10) MOD 10;
+        digit2 := (bin_val / 100) MOD 10;
+        digit3 := (bin_val / 1000) MOD 10;
+        
+        -- Convert to BCD (4 bits per digit)
+        bcd_val(3 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(digit0, 4);
+        bcd_val(7 DOWNTO 4) := CONV_STD_LOGIC_VECTOR(digit1, 4);
+        bcd_val(11 DOWNTO 8) := CONV_STD_LOGIC_VECTOR(digit2, 4);
+        bcd_val(15 DOWNTO 12) := CONV_STD_LOGIC_VECTOR(digit3, 4);
+        
+        display <= bcd_val;
+    END PROCESS;
     
     -- Instantiate 7-segment display
     led1 : leddec16

@@ -1366,7 +1366,7 @@ BEGIN
                                 enemy_is_diving(diver_row, diver_col) <= '0';
                                 bullet_active <= '0';
                                 bullet_y <= CONV_STD_LOGIC_VECTOR(600, 11);
-                                score_i <= score_i + 50; -- Bonus for diver
+                                score_i <= score_i + 1; -- Bonus for diver
                                 hits_count <= hits_count + 1;
                                 collision_found := '1';
                             END IF;
@@ -1386,7 +1386,7 @@ BEGIN
                                         enemy_alive(row, col) <= '0';
                                         bullet_active <= '0';
                                         bullet_y <= CONV_STD_LOGIC_VECTOR(600, 11);
-                                        score_i <= score_i + 10;
+                                        score_i <= score_i + 1;
                                         hits_count <= hits_count + 1;
                                         collision_found := '1';
                                     END IF;
