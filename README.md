@@ -43,6 +43,38 @@ The core of the game is the enemy formation, which evolves in difficulty.
     *   Number of Hits
     *   Hit/Miss Ratio (Accuracy %)
 
+## Instructions to Run the Project
+
+### 1. Project Setup in Vivado
+1.  Create a new RTL project named **galaga**.
+2.  Select the target board: **Nexys A7-100T**.
+3.  Add the following source files (VHDL):
+    *   `galaga.vhd`
+    *   `galaga_game.vhd`
+    *   `vga_sync.vhd`
+    *   `leddec16.vhd`
+    *   `clk_wiz_0.vhd` & `clk_wiz_0_clk_wiz.vhd`
+4.  Add the constraint file:
+    *   `galaga.xdc`
+
+### 2. Synthesis & Implementation
+1.  Click **Run Synthesis** and wait for completion.
+2.  Click **Run Implementation**.
+3.  Click **Generate Bitstream**.
+
+### 3. Programming
+1.  Connect the Nexys A7 board to your PC via USB.
+2.  Open **Hardware Manager** > **Open Target** > **Auto Connect**.
+3.  Click **Program Device** and select the `galaga.bit` file.
+
+### 4. Controls
+| Button | Action |
+| :--- | :--- |
+| **BTNL** | Move Ship Left |
+| **BTNR** | Move Ship Right |
+| **BTN0 (Center)** | Fire Laser |
+| **BTNU (Up)** | Reset Game |
+
 ## Technical Implementation
 
 ### System Architecture
@@ -99,38 +131,6 @@ graph TD
 *   **Display:** Standard VGA Monitor (supports 800x600 @ 60Hz).
 *   **Connection:** VGA Cable (or HDMI with active VGA adapter).
 *   **Power/Prog:** Micro-USB cable.
-
-## Instructions to Run the Project
-
-### 1. Project Setup in Vivado
-1.  Create a new RTL project named **galaga**.
-2.  Select the target board: **Nexys A7-100T**.
-3.  Add the following source files (VHDL):
-    *   `galaga.vhd`
-    *   `galaga_game.vhd`
-    *   `vga_sync.vhd`
-    *   `leddec16.vhd`
-    *   `clk_wiz_0.vhd` & `clk_wiz_0_clk_wiz.vhd`
-4.  Add the constraint file:
-    *   `galaga.xdc`
-
-### 2. Synthesis & Implementation
-1.  Click **Run Synthesis** and wait for completion.
-2.  Click **Run Implementation**.
-3.  Click **Generate Bitstream**.
-
-### 3. Programming
-1.  Connect the Nexys A7 board to your PC via USB.
-2.  Open **Hardware Manager** > **Open Target** > **Auto Connect**.
-3.  Click **Program Device** and select the `galaga.bit` file.
-
-### 4. Controls
-| Button | Action |
-| :--- | :--- |
-| **BTNL** | Move Ship Left |
-| **BTNR** | Move Ship Right |
-| **BTN0 (Center)** | Fire Laser |
-| **BTNU (Up)** | Reset Game |
 
 ## Future Improvements
 *   Add sound effects using the PWM audio output.
