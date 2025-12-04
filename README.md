@@ -361,23 +361,23 @@ graph TD
     end
 
     subgraph FPGA_Logic
-        ClkWiz["Clock Wizard\n(100MHz -> 25MHz)"]
+        ClkWiz["Clock Wizard<br/>(100MHz -> 25MHz)"]
         
         subgraph Game_Core
-            FSM["Finite State Machine\n(Start, Play, Over)"]
-            Physics["Physics Engine\n(Movement, Collision)"]
-            AI["Enemy AI\n(Timers, Patterns)"]
-            Renderer["Sprite Renderer\n(Bitmaps, Color Mux)"]
+            FSM["Finite State Machine<br/>(Start, Play, Over)"]
+            Physics["Physics Engine<br/>(Movement, Collision)"]
+            AI["Enemy AI<br/>(Timers, Patterns)"]
+            Renderer["Sprite Renderer<br/>(Bitmaps, Color Mux)"]
         end
         
-        VGA["VGA Controller\n(Sync Signals, Counters)"]
-        Seg7["7-Segment Controller\n(Score Display)"]
+        VGA["VGA Controller<br/>(Sync Signals, Counters)"]
+        Seg7["7-Segment Controller<br/>(Score Display)"]
     end
 
     subgraph Outputs
-        Monitor["VGA Monitor\n(800x600 RGB)"]
-        Display["7-Segment Display\n(Score)"]
-        LEDs["Board LEDs\n(Debug/Status)"]
+        Monitor["VGA Monitor<br/>(800x600 RGB)"]
+        Display["7-Segment Display<br/>(Score)"]
+        LEDs["Board LEDs<br/>(Debug/Status)"]
     end
 
     Clk --> ClkWiz
