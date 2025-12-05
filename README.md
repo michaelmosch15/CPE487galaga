@@ -1,4 +1,5 @@
 # Final Project: Video Game Galaga (CPE 487)
+## Lily Stone and Michael Moschello
 
 This project implements a sophisticated recreation of the arcade classic **Galaga** on the Digilent Nexys A7-100T FPGA board. Written entirely in VHDL, the system features a custom VGA graphics engine, complex enemy AI, sprite-based rendering, and a finite state machine (FSM) game loop.
 
@@ -408,8 +409,6 @@ This project is built upon **Lab 6: Pong** starter code. The Pong game provided 
 - Clock management (`clk_wiz_0` files)
 - Basic game structure (`pong.vhd` and `bat_n_ball.vhd`)
 - Constraint file (`pong.xdc`)
-
-**Credits:** Starter code from CPE 487 Lab 6 (Pong game implementation).
 
 ### Unchanged Modules
 The following modules were kept **completely unchanged** from the starter code:
@@ -946,7 +945,7 @@ The clock wizard files (`clk_wiz_0.vhd` and `clk_wiz_0_clk_wiz.vhd`) are generat
 
 ## Conclusion
 
-This project successfully transforms a simple Pong game into a complex, feature-rich Galaga implementation. The modifications demonstrate:
+This project successfully transforms a simple Pong game into a complex Galaga implementation. The modifications demonstrate:
 
 - **Understanding of VHDL architecture:** Creating complex state machines and game logic
 - **System integration:** Connecting multiple modules and managing data flow
@@ -954,7 +953,84 @@ This project successfully transforms a simple Pong game into a complex, feature-
 - **Algorithm implementation:** Collision detection, AI behaviors, procedural generation
 - **Real-time systems:** Synchronizing game logic with VGA display at 60 FPS
 
-The project showcases advanced digital logic design concepts while creating an engaging and playable arcade game experience.
-*   Add sound effects using the PWM audio output.
-*   Implement a high-score retention system.
-*   Add "Challenging Stages" (bonus rounds) similar to the original arcade game.
+### Summary of Process
+
+The development of this Galaga game followed an iterative, incremental approach, starting with a minimal prototype and gradually adding features and complexity. This section documents the evolution of the project from initial concept to final implementation.
+
+#### Phase 1: Basic Prototype
+The project began with the simplest possible implementation to establish core functionality:
+- **Player Ship:** A basic triangle shape rendered at the bottom of the screen
+- **Enemies:** Simple square shapes arranged in a basic formation
+- **Shooting Mechanics:** Player could fire bullets that would destroy enemies on contact
+- **Basic Collision:** Simple bounding box collision detection between bullets and enemies
+- **Enemy Removal:** Enemies would disappear when hit by player bullets
+
+This minimal version verified that the core game loop (input → update → render) worked correctly and that collision detection functioned as expected.
+
+#### Phase 2: Enhanced Graphics and Movement
+With the basic mechanics working, the next phase focused on improving visual appearance and adding more dynamic movement:
+- **Sprite Bitmaps:** Replaced simple geometric shapes with detailed 16×16 pixel bitmap sprites
+  - Created custom Galaga-style player ship sprite
+  - Designed enemy sprites (Bees, Crabs, Walkers) with distinct appearances
+  - Implemented sprite scaling (2×) for larger on-screen appearance
+- **Enemy Movement:** Enhanced enemy formation behavior
+  - Added horizontal movement with edge bouncing
+  - Implemented "breathing" animation (vertical expansion/contraction)
+  - Created smooth, organic movement patterns
+
+#### Phase 3: Gameplay Refinement
+Once graphics were established, the focus shifted to making the game more engaging:
+- **Enemy AI Behaviors:** Added complex enemy attack patterns
+  - Implemented dive attacks where individual enemies break formation
+  - Created squad fly-in attacks with leader and wingmen
+  - Added random enemy shooting from formation
+  - Implemented triple-shot attacks from diving enemies
+- **Gameplay Balancing:** Fine-tuned various parameters
+  - Adjusted bullet speeds for better feel
+  - Calibrated enemy movement speeds
+  - Balanced difficulty progression
+  - Refined collision detection for accuracy
+
+#### Phase 4: Game Structure and Progression
+To create a complete game experience, structured progression systems were added:
+- **Wave System:** Implemented infinite wave progression
+  - Created different formation patterns for early waves (4 → 12 → 24 → 40 → 60 enemies)
+  - Added difficulty scaling (faster movement, higher fire rate with each wave)
+  - Implemented wave number display on screen
+- **Lives System:** Added player life management
+  - Started with 3 lives
+  - Lives decrease on collision with enemies or enemy bullets
+  - Visual feedback via LEDs on the board
+  - Game over when lives reach zero
+- **State Machine:** Implemented complete game flow
+  - Added START, READY_SCREEN, FLY_IN, PLAY, NEXT_WAVE, GAMEOVER, and RESULTS_SCREEN states
+  - Created smooth transitions between game phases
+  - Added timers for screen displays
+
+#### Phase 5: Visual Polish and Background
+To enhance the visual experience, background elements and polish were added:
+- **Starfield Background:** Implemented procedural starfield generation
+  - Created hash-based algorithm for deterministic star placement
+  - Added scrolling animation synchronized with game
+  - Multiple star colors from hash function
+  - No memory required - generated on-the-fly
+- **Text Rendering:** Added custom font system
+  - Created 5×7 pixel font with 26+ characters
+  - Implemented text rendering for "LEVEL XX", "READY!", "GAME OVER"
+  - Added statistics display on results screen
+
+#### Phase 6: Scoring and Statistics
+To provide player feedback and replay value, comprehensive statistics were implemented:
+- **Scoring System:** 
+  - Tracked score as 16-bit binary value
+  - Converted to BCD for decimal display on 7-segment display
+  - Standardized scoring (1 point per enemy)
+- **Statistics Tracking:**
+  - Shots fired counter
+  - Hits counter
+  - Hit/miss ratio calculation (accuracy percentage)
+  - Results screen displaying all statistics
+
+We worked on these iterations together, bouncing ideas of each other and implementing them one by one. We created the baseline of the project together in class. Michael took the board home and worked on implementing the waves and background. Then Lily took the board and finished bug fixes and smoothed game mechanics. Lily also completed the report, while Michael worked on the poster. 
+
+**Credits**: Starter code from Lab 6 was used. Generative AI was used to create bitmaps for the sprites based on images, to workshop how to implement features in the game, and assisted in creating the diagrams in Markdown format. 
