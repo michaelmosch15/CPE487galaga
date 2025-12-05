@@ -137,13 +137,13 @@ This section describes all inputs from and outputs to the Nexys A7-100T board, i
 
 ### Inputs (From Board to FPGA)
 
-| Signal Name | Width | Board Pin | I/O Standard | Description | Source | Status |
+| Signal Name | Width | Board Pin | I/O Standard | Description | Source |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `clk_in` | 1-bit | E3 | LVCMOS33 | 100 MHz system clock | Board oscillator | Unchanged |
-| `btnl` | 1-bit | P17 | LVCMOS33 | Left button - move ship left | User input | Unchanged |
-| `btnr` | 1-bit | M17 | LVCMOS33 | Right button - move ship right | User input | Unchanged |
-| `btn0` | 1-bit | N17 | LVCMOS33 | Center button - fire laser | User input | Unchanged |
-| `btnu` | 1-bit | M18 | LVCMOS33 | Up button - reset game | User input | **ADDED** |
+| `clk_in` | 1-bit | E3 | LVCMOS33 | 100 MHz system clock | Board oscillator |
+| `btnl` | 1-bit | P17 | LVCMOS33 | Left button - move ship left | User input |
+| `btnr` | 1-bit | M17 | LVCMOS33 | Right button - move ship right | User input |
+| `btn0` | 1-bit | N17 | LVCMOS33 | Center button - fire laser | User input |
+| `btnu` | 1-bit | M18 | LVCMOS33 | Up button - reset game | User input |
 
 **Input Modifications from Starter Code:**
 - **`btnu` (Reset Button):** This input was **added** to the project. The original Pong game used a different reset mechanism. We added this button to provide a dedicated reset function, mapped to pin M18 in the constraint file. This demonstrates our ability to add new inputs and modify the constraint file accordingly.
@@ -152,13 +152,13 @@ This section describes all inputs from and outputs to the Nexys A7-100T board, i
 
 #### VGA Display Outputs
 
-| Signal Name | Width | Board Pins | I/O Standard | Description | Status |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `VGA_red` | 4-bit | A3, B4, C5, A4 | LVCMOS33 | Red color channel (4-bit) | Unchanged |
-| `VGA_green` | 4-bit | C6, A5, B6, A6 | LVCMOS33 | Green color channel (4-bit) | Unchanged |
-| `VGA_blue` | 4-bit | B7, C7, D7, D8 | LVCMOS33 | Blue color channel (4-bit) | Unchanged |
-| `VGA_hsync` | 1-bit | B11 | LVCMOS33 | Horizontal sync signal | Unchanged |
-| `VGA_vsync` | 1-bit | B12 | LVCMOS33 | Vertical sync signal | Unchanged |
+| Signal Name | Width | Board Pins | I/O Standard | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `VGA_red` | 4-bit | A3, B4, C5, A4 | LVCMOS33 | Red color channel (4-bit) |
+| `VGA_green` | 4-bit | C6, A5, B6, A6 | LVCMOS33 | Green color channel (4-bit) |
+| `VGA_blue` | 4-bit | B7, C7, D7, D8 | LVCMOS33 | Blue color channel (4-bit) |
+| `VGA_hsync` | 1-bit | B11 | LVCMOS33 | Horizontal sync signal |
+| `VGA_vsync` | 1-bit | B12 | LVCMOS33 | Vertical sync signal |
 
 **VGA Output Details:**
 - All VGA outputs were present in the starter code and remain unchanged
@@ -167,10 +167,10 @@ This section describes all inputs from and outputs to the Nexys A7-100T board, i
 
 #### 7-Segment Display Outputs
 
-| Signal Name | Width | Board Pins | I/O Standard | Description | Status |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `SEG7_seg[6:0]` | 7-bit | L18, T11, P15, K13, K16, R10, T10 | LVCMOS33 | Segment patterns (a-g) | Unchanged |
-| `SEG7_anode[7:0]` | 8-bit | J17, J18, T9, J14, P14, T14, K2, U13 | LVCMOS33 | Digit select anodes | Unchanged |
+| Signal Name | Width | Board Pins | I/O Standard | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `SEG7_seg[6:0]` | 7-bit | L18, T11, P15, K13, K16, R10, T10 | LVCMOS33 | Segment patterns (a-g) |
+| `SEG7_anode[7:0]` | 8-bit | J17, J18, T9, J14, P14, T14, K2, U13 | LVCMOS33 | Digit select anodes |
 
 **7-Segment Display Details:**
 - Present in starter code, used to display score
@@ -180,12 +180,12 @@ This section describes all inputs from and outputs to the Nexys A7-100T board, i
 
 #### LED Outputs
 
-| Signal Name | Width | Board Pins | I/O Standard | Description | Status |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `led[15]` | 1-bit | V11 | LVCMOS33 | Life indicator (3+ lives) | **ADDED** |
-| `led[14]` | 1-bit | V12 | LVCMOS33 | Life indicator (2+ lives) | **ADDED** |
-| `led[13]` | 1-bit | V14 | LVCMOS33 | Life indicator (1+ life) | **ADDED** |
-| `led[12:0]` | 13-bit | V15, T16, U14, T15, V16, U16, U17, V17, R18, N14, J13, K15, H17 | LVCMOS33 | Unused (always 0) | **ADDED** |
+| Signal Name | Width | Board Pins | I/O Standard | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `led[15]` | 1-bit | V11 | LVCMOS33 | Life indicator (3+ lives) |
+| `led[14]` | 1-bit | V12 | LVCMOS33 | Life indicator (2+ lives) |
+| `led[13]` | 1-bit | V14 | LVCMOS33 | Life indicator (1+ life) |
+| `led[12:0]` | 13-bit | V15, T16, U14, T15, V16, U16, U17, V17, R18, N14, J13, K15, H17 | LVCMOS33 | Unused (always 0) |
 
 **LED Output Modifications:**
 - **All LED outputs were ADDED** to this project
