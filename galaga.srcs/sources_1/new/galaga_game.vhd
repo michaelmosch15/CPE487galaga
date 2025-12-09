@@ -138,6 +138,9 @@ ARCHITECTURE Behavioral OF galaga_game IS
     SIGNAL squad_y : STD_LOGIC_VECTOR(10 DOWNTO 0);
     SIGNAL squad_timer : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
     SIGNAL squad_phase : INTEGER RANGE 0 TO 3 := 0;
+    SIGNAL squad_leader_alive : STD_LOGIC := '1';  -- Leader (Bee) alive status
+    SIGNAL squad_wingman1_alive : STD_LOGIC := '1'; -- Wingman 1 (Crab) alive status
+    SIGNAL squad_wingman2_alive : STD_LOGIC := '1'; -- Wingman 2 (Crab) alive status
     
     -- ========================================================================
     -- Enemy Formation Management
@@ -374,7 +377,7 @@ BEGIN
     END PROCESS;
     
     -- Process to draw enemies
-    enemy_draw : PROCESS (enemy_x_pos, pixel_row, pixel_col, enemy_alive, enemy_is_diving, diver_active, diver_x, diver_y, current_start_y, enemy_y_offset, squad_active, squad_x, squad_y, wave_number, diver_row) IS
+    enemy_draw : PROCESS (enemy_x_pos, pixel_row, pixel_col, enemy_alive, enemy_is_diving, diver_active, diver_x, diver_y, current_start_y, enemy_y_offset, squad_active, squad_x, squad_y, squad_leader_alive, squad_wingman1_alive, squad_wingman2_alive, wave_number, diver_row) IS
         VARIABLE enemy_x, enemy_y : STD_LOGIC_VECTOR(10 DOWNTO 0);
         VARIABLE found : STD_LOGIC := '0';
         VARIABLE sx, sy : INTEGER;
@@ -474,41 +477,47 @@ BEGIN
             END IF;
         END IF;
         
-        -- Draw Squad (Special Attack)
+        -- Draw Squad (Special Attack) - only draw alive members
         IF squad_active = '1' THEN
-            -- Leader (Bee)
-            IF pixel_col >= squad_x - HALF_SIZE AND pixel_col < squad_x + HALF_SIZE AND
-               pixel_row >= squad_y - HALF_SIZE AND pixel_row < squad_y + HALF_SIZE THEN
-                sx := (CONV_INTEGER(pixel_col - (squad_x - HALF_SIZE))) / SPRITE_SCALE;
-                sy := (CONV_INTEGER(pixel_row - (squad_y - HALF_SIZE))) / SPRITE_SCALE;
-                IF sx >= 0 AND sx < 16 AND sy >= 0 AND sy < 16 THEN
-                    IF bee_sprite(sy)(sx) = '1' THEN
-                        found := '1';
-                        current_color := "110"; -- Yellow
+            -- Leader (Bee) - only draw if alive
+            IF squad_leader_alive = '1' THEN
+                IF pixel_col >= squad_x - HALF_SIZE AND pixel_col < squad_x + HALF_SIZE AND
+                   pixel_row >= squad_y - HALF_SIZE AND pixel_row < squad_y + HALF_SIZE THEN
+                    sx := (CONV_INTEGER(pixel_col - (squad_x - HALF_SIZE))) / SPRITE_SCALE;
+                    sy := (CONV_INTEGER(pixel_row - (squad_y - HALF_SIZE))) / SPRITE_SCALE;
+                    IF sx >= 0 AND sx < 16 AND sy >= 0 AND sy < 16 THEN
+                        IF bee_sprite(sy)(sx) = '1' THEN
+                            found := '1';
+                            current_color := "110"; -- Yellow
+                        END IF;
                     END IF;
                 END IF;
             END IF;
-            -- Wingman 1 (Crab)
-            IF pixel_col >= squad_x - 20 - HALF_SIZE AND pixel_col < squad_x - 20 + HALF_SIZE AND
-               pixel_row >= squad_y - 20 - HALF_SIZE AND pixel_row < squad_y - 20 + HALF_SIZE THEN
-                sx := (CONV_INTEGER(pixel_col - (squad_x - 20 - HALF_SIZE))) / SPRITE_SCALE;
-                sy := (CONV_INTEGER(pixel_row - (squad_y - 20 - HALF_SIZE))) / SPRITE_SCALE;
-                IF sx >= 0 AND sx < 16 AND sy >= 0 AND sy < 16 THEN
-                    IF crab_sprite(sy)(sx) = '1' THEN
-                        found := '1';
-                        current_color := "100"; -- Red
+            -- Wingman 1 (Crab) - only draw if alive
+            IF squad_wingman1_alive = '1' THEN
+                IF pixel_col >= squad_x - 20 - HALF_SIZE AND pixel_col < squad_x - 20 + HALF_SIZE AND
+                   pixel_row >= squad_y - 20 - HALF_SIZE AND pixel_row < squad_y - 20 + HALF_SIZE THEN
+                    sx := (CONV_INTEGER(pixel_col - (squad_x - 20 - HALF_SIZE))) / SPRITE_SCALE;
+                    sy := (CONV_INTEGER(pixel_row - (squad_y - 20 - HALF_SIZE))) / SPRITE_SCALE;
+                    IF sx >= 0 AND sx < 16 AND sy >= 0 AND sy < 16 THEN
+                        IF crab_sprite(sy)(sx) = '1' THEN
+                            found := '1';
+                            current_color := "100"; -- Red
+                        END IF;
                     END IF;
                 END IF;
             END IF;
-            -- Wingman 2 (Crab)
-            IF pixel_col >= squad_x - 20 - HALF_SIZE AND pixel_col < squad_x - 20 + HALF_SIZE AND
-               pixel_row >= squad_y + 20 - HALF_SIZE AND pixel_row < squad_y + 20 + HALF_SIZE THEN
-                sx := (CONV_INTEGER(pixel_col - (squad_x - 20 - HALF_SIZE))) / SPRITE_SCALE;
-                sy := (CONV_INTEGER(pixel_row - (squad_y + 20 - HALF_SIZE))) / SPRITE_SCALE;
-                IF sx >= 0 AND sx < 16 AND sy >= 0 AND sy < 16 THEN
-                    IF crab_sprite(sy)(sx) = '1' THEN
-                        found := '1';
-                        current_color := "100"; -- Red
+            -- Wingman 2 (Crab) - only draw if alive
+            IF squad_wingman2_alive = '1' THEN
+                IF pixel_col >= squad_x - 20 - HALF_SIZE AND pixel_col < squad_x - 20 + HALF_SIZE AND
+                   pixel_row >= squad_y + 20 - HALF_SIZE AND pixel_row < squad_y + 20 + HALF_SIZE THEN
+                    sx := (CONV_INTEGER(pixel_col - (squad_x - 20 - HALF_SIZE))) / SPRITE_SCALE;
+                    sy := (CONV_INTEGER(pixel_row - (squad_y + 20 - HALF_SIZE))) / SPRITE_SCALE;
+                    IF sx >= 0 AND sx < 16 AND sy >= 0 AND sy < 16 THEN
+                        IF crab_sprite(sy)(sx) = '1' THEN
+                            found := '1';
+                            current_color := "100"; -- Red
+                        END IF;
                     END IF;
                 END IF;
             END IF;
@@ -992,6 +1001,9 @@ BEGIN
                     enemy_bullet_active <= '0';
                     enemy_is_diving <= (OTHERS => (OTHERS => '0'));
                     squad_active <= '0';
+                    squad_leader_alive <= '1';  -- Reset squad members for next wave
+                    squad_wingman1_alive <= '1';
+                    squad_wingman2_alive <= '1';
                     
                     -- Set difficulty and speed
                     -- Infinite scaling
@@ -1317,6 +1329,10 @@ BEGIN
                          squad_x <= (OTHERS => '0'); -- Start Left Edge
                          squad_y <= CONV_STD_LOGIC_VECTOR(100 + CONV_INTEGER(random_col)*10, 11); -- Random Start Height
                          squad_timer <= (OTHERS => '0');
+                         -- Initialize all squad members as alive
+                         squad_leader_alive <= '1';
+                         squad_wingman1_alive <= '1';
+                         squad_wingman2_alive <= '1';
                     END IF;
                     
                     IF squad_active = '1' THEN
@@ -1333,39 +1349,47 @@ BEGIN
                              END IF;
                         END IF;
                         
-                        -- End of path
+                        -- End of path - deactivate when all dead or off-screen
                         IF squad_x > 800 OR squad_y > 600 THEN
                             squad_active <= '0';
                         END IF;
                         
-                        -- Collision for Squad Leader
-                        IF squad_x >= player_x_pos - player_size AND squad_x <= player_x_pos + player_size AND
+                        -- Deactivate squad if all members are dead
+                        IF squad_leader_alive = '0' AND squad_wingman1_alive = '0' AND squad_wingman2_alive = '0' THEN
+                            squad_active <= '0';
+                        END IF;
+                        
+                        -- Collision for Squad Leader (only if alive)
+                        IF squad_leader_alive = '1' AND
+                           squad_x >= player_x_pos - player_size AND squad_x <= player_x_pos + player_size AND
                            squad_y >= player_y - player_size AND squad_y <= player_y + player_size THEN
                             IF lives_count > 1 THEN
                                 lives_count <= lives_count - 1;
-                                squad_active <= '0';
+                                squad_leader_alive <= '0'; -- Kill the leader
                             ELSE
                                 lives_count <= 0;
                                 current_state <= GAMEOVER;
                             END IF;
                         END IF;
-                        -- Collision for Wingman 1 (x-20, y-20)
-                        IF (squad_x - 20) >= player_x_pos - player_size AND (squad_x - 20) <= player_x_pos + player_size AND
+                        -- Collision for Wingman 1 (x-20, y-20) - only if alive
+                        IF squad_wingman1_alive = '1' AND
+                           (squad_x - 20) >= player_x_pos - player_size AND (squad_x - 20) <= player_x_pos + player_size AND
                            (squad_y - 20) >= player_y - player_size AND (squad_y - 20) <= player_y + player_size THEN
                             IF lives_count > 1 THEN
                                 lives_count <= lives_count - 1;
-                                squad_active <= '0';
+                                squad_wingman1_alive <= '0'; -- Kill wingman 1
                             ELSE
                                 lives_count <= 0;
                                 current_state <= GAMEOVER;
                             END IF;
                         END IF;
-                         -- Collision for Wingman 2 (x-20, y+20)
-                        IF (squad_x - 20) >= player_x_pos - player_size AND (squad_x - 20) <= player_x_pos + player_size AND
+                         -- Collision for Wingman 2 (x-20, y+20) - only if alive
+                        IF squad_wingman2_alive = '1' AND
+                           (squad_x - 20) >= player_x_pos - player_size AND (squad_x - 20) <= player_x_pos + player_size AND
                            (squad_y + 20) >= player_y - player_size AND (squad_y + 20) <= player_y + player_size THEN
                             IF lives_count > 1 THEN
                                 lives_count <= lives_count - 1;
-                                squad_active <= '0';
+                                squad_wingman2_alive <= '0'; -- Kill wingman 2
                             ELSE
                                 lives_count <= 0;
                                 current_state <= GAMEOVER;
@@ -1460,40 +1484,49 @@ BEGIN
                         collision_found := '0';
                         
                         -- Check Squad Collision (check before diver to prioritize special enemies)
+                        -- Each squad member can be hit individually
                         IF squad_active = '1' AND collision_found = '0' THEN
-                            -- Check Squad Leader (Bee at squad_x, squad_y)
-                            IF bullet_x >= squad_x - enemy_size AND
+                            -- Check Squad Leader (Bee at squad_x, squad_y) - only if alive
+                            IF squad_leader_alive = '1' AND
+                               bullet_x >= squad_x - enemy_size AND
                                bullet_x <= squad_x + enemy_size AND
                                bullet_y >= squad_y - enemy_size AND
                                bullet_y <= squad_y + enemy_size THEN
-                                squad_active <= '0';
+                                squad_leader_alive <= '0'; -- Kill only the leader
                                 bullet_active <= '0';
                                 bullet_y <= CONV_STD_LOGIC_VECTOR(600, 11);
                                 score_i <= score_i + 1;
                                 hits_count <= hits_count + 1;
                                 collision_found := '1';
-                            -- Check Wingman 1 (Crab at squad_x - 20, squad_y - 20)
-                            ELSIF bullet_x >= (squad_x - 20) - enemy_size AND
+                            -- Check Wingman 1 (Crab at squad_x - 20, squad_y - 20) - only if alive
+                            ELSIF squad_wingman1_alive = '1' AND
+                                  bullet_x >= (squad_x - 20) - enemy_size AND
                                   bullet_x <= (squad_x - 20) + enemy_size AND
                                   bullet_y >= (squad_y - 20) - enemy_size AND
                                   bullet_y <= (squad_y - 20) + enemy_size THEN
-                                squad_active <= '0';
+                                squad_wingman1_alive <= '0'; -- Kill only wingman 1
                                 bullet_active <= '0';
                                 bullet_y <= CONV_STD_LOGIC_VECTOR(600, 11);
                                 score_i <= score_i + 1;
                                 hits_count <= hits_count + 1;
                                 collision_found := '1';
-                            -- Check Wingman 2 (Crab at squad_x - 20, squad_y + 20)
-                            ELSIF bullet_x >= (squad_x - 20) - enemy_size AND
+                            -- Check Wingman 2 (Crab at squad_x - 20, squad_y + 20) - only if alive
+                            ELSIF squad_wingman2_alive = '1' AND
+                                  bullet_x >= (squad_x - 20) - enemy_size AND
                                   bullet_x <= (squad_x - 20) + enemy_size AND
                                   bullet_y >= (squad_y + 20) - enemy_size AND
                                   bullet_y <= (squad_y + 20) + enemy_size THEN
-                                squad_active <= '0';
+                                squad_wingman2_alive <= '0'; -- Kill only wingman 2
                                 bullet_active <= '0';
                                 bullet_y <= CONV_STD_LOGIC_VECTOR(600, 11);
                                 score_i <= score_i + 1;
                                 hits_count <= hits_count + 1;
                                 collision_found := '1';
+                            END IF;
+                            
+                            -- Deactivate entire squad only when all members are dead
+                            IF squad_leader_alive = '0' AND squad_wingman1_alive = '0' AND squad_wingman2_alive = '0' THEN
+                                squad_active <= '0';
                             END IF;
                         END IF;
                         
