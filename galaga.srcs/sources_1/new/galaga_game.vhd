@@ -162,6 +162,9 @@ ARCHITECTURE Behavioral OF galaga_game IS
     -- Score
     SIGNAL score_i : STD_LOGIC_VECTOR(15 DOWNTO 0) := (OTHERS => '0');
     
+    -- Reset button edge detection for better responsiveness
+    SIGNAL reset_prev : STD_LOGIC := '0';
+    
     -- Collision detection signals
     SIGNAL bullet_enemy_collision : STD_LOGIC := '0';
     SIGNAL enemy_player_collision : STD_LOGIC := '0';
@@ -945,13 +948,25 @@ BEGIN
             star_scroll_y <= star_scroll_y - 1; -- Move stars down
         END IF;
         
-        IF reset = '1' THEN
+        -- Check for reset button press (edge detection for better responsiveness)
+        -- Reset can be triggered from any state, but is especially important in RESULTS_SCREEN
+        -- Using edge detection (rising edge) makes reset more responsive - triggers on button press
+        -- rather than requiring button to be held for a full frame
+        IF reset = '1' AND reset_prev = '0' THEN
+            -- Reset button was just pressed (rising edge detected) - immediately reset game
             current_state <= START;
             lives_count <= 3;
             shots_fired_count <= 0;
             hits_count <= 0;
             hit_miss_ratio <= 0;
-        ELSE
+            score_i <= (OTHERS => '0');
+            wave_number <= 1;
+        END IF;
+        
+        -- Update reset_prev for edge detection on next frame
+        reset_prev <= reset;
+        
+        -- Process game logic (always process, reset check above handles state transition)
             CASE current_state IS
                 WHEN START =>
                     score_i <= (OTHERS => '0');
@@ -1444,8 +1459,46 @@ BEGIN
                     IF bullet_active = '1' THEN
                         collision_found := '0';
                         
+                        -- Check Squad Collision (check before diver to prioritize special enemies)
+                        IF squad_active = '1' AND collision_found = '0' THEN
+                            -- Check Squad Leader (Bee at squad_x, squad_y)
+                            IF bullet_x >= squad_x - enemy_size AND
+                               bullet_x <= squad_x + enemy_size AND
+                               bullet_y >= squad_y - enemy_size AND
+                               bullet_y <= squad_y + enemy_size THEN
+                                squad_active <= '0';
+                                bullet_active <= '0';
+                                bullet_y <= CONV_STD_LOGIC_VECTOR(600, 11);
+                                score_i <= score_i + 1;
+                                hits_count <= hits_count + 1;
+                                collision_found := '1';
+                            -- Check Wingman 1 (Crab at squad_x - 20, squad_y - 20)
+                            ELSIF bullet_x >= (squad_x - 20) - enemy_size AND
+                                  bullet_x <= (squad_x - 20) + enemy_size AND
+                                  bullet_y >= (squad_y - 20) - enemy_size AND
+                                  bullet_y <= (squad_y - 20) + enemy_size THEN
+                                squad_active <= '0';
+                                bullet_active <= '0';
+                                bullet_y <= CONV_STD_LOGIC_VECTOR(600, 11);
+                                score_i <= score_i + 1;
+                                hits_count <= hits_count + 1;
+                                collision_found := '1';
+                            -- Check Wingman 2 (Crab at squad_x - 20, squad_y + 20)
+                            ELSIF bullet_x >= (squad_x - 20) - enemy_size AND
+                                  bullet_x <= (squad_x - 20) + enemy_size AND
+                                  bullet_y >= (squad_y + 20) - enemy_size AND
+                                  bullet_y <= (squad_y + 20) + enemy_size THEN
+                                squad_active <= '0';
+                                bullet_active <= '0';
+                                bullet_y <= CONV_STD_LOGIC_VECTOR(600, 11);
+                                score_i <= score_i + 1;
+                                hits_count <= hits_count + 1;
+                                collision_found := '1';
+                            END IF;
+                        END IF;
+                        
                         -- Check Diver Collision
-                        IF diver_active = '1' THEN
+                        IF diver_active = '1' AND collision_found = '0' THEN
                             IF bullet_x >= diver_x - enemy_size AND
                                bullet_x <= diver_x + enemy_size AND
                                bullet_y >= diver_y - enemy_size AND
@@ -1536,16 +1589,16 @@ BEGIN
                     END IF;
                     
                 WHEN RESULTS_SCREEN =>
-                    -- Calculate Ratio once
+                    -- Calculate Ratio once (recalculated each frame for accuracy)
                     IF shots_fired_count > 0 THEN
                          hit_miss_ratio <= (hits_count * 100) / shots_fired_count;
                     ELSE
                          hit_miss_ratio <= 0;
                     END IF;
-                    -- Wait for reset
-                    NULL;
+                    -- Reset is checked at top of process with edge detection
+                    -- This state just waits for reset button press to return to START
+                    -- The reset check above will handle the state transition
             END CASE;
-        END IF;
     END PROCESS;
 END Behavioral;
 
