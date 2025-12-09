@@ -1,3 +1,20 @@
+-- ============================================================================
+-- Game Engine Module: Galaga Game Logic
+-- ============================================================================
+-- This module implements the complete Galaga game engine including:
+-- - Finite state machine for game flow (7 states)
+-- - Sprite rendering system (player, 3 enemy types)
+-- - Enemy AI (formation movement, dive attacks, squad fly-ins, shooting)
+-- - Collision detection (5 collision types)
+-- - Procedural starfield background
+-- - Text rendering system (custom 5×7 font)
+-- - Wave progression and difficulty scaling
+-- - Statistics tracking (shots, hits, accuracy)
+--
+-- The game logic runs synchronously with VGA vertical sync (60Hz) for
+-- consistent frame timing. All rendering is done pixel-by-pixel in real-time.
+-- ============================================================================
+
 LIBRARY IEEE;
 USE IEEE.STD_LOGIC_1164.ALL;
 USE IEEE.STD_LOGIC_ARITH.ALL;
@@ -5,53 +22,78 @@ USE IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 ENTITY galaga_game IS
     PORT (
-        v_sync : IN STD_LOGIC;
-        pixel_row : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
-        pixel_col : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
-        player_x : IN STD_LOGIC_VECTOR(10 DOWNTO 0); -- player ship x position
-        shoot : IN STD_LOGIC; -- fire button
-        reset : IN STD_LOGIC; -- reset button
-        red : OUT STD_LOGIC;
-        green : OUT STD_LOGIC;
-        blue : OUT STD_LOGIC;
-        score : OUT STD_LOGIC_VECTOR(15 DOWNTO 0); -- score counter
-        lives : OUT STD_LOGIC_VECTOR(2 DOWNTO 0); -- lives counter
-        game_over : OUT STD_LOGIC -- game over indicator
+        -- VGA synchronization and pixel coordinates
+        v_sync : IN STD_LOGIC;  -- Vertical sync pulse (60Hz) - triggers game logic updates
+        pixel_row : IN STD_LOGIC_VECTOR(10 DOWNTO 0);  -- Current pixel row (0-599)
+        pixel_col : IN STD_LOGIC_VECTOR(10 DOWNTO 0);  -- Current pixel column (0-799)
+        
+        -- Player input
+        player_x : IN STD_LOGIC_VECTOR(10 DOWNTO 0); -- Player ship X position from top level
+        shoot : IN STD_LOGIC;  -- Fire button input (active high)
+        reset : IN STD_LOGIC;  -- Reset button input 
+        
+        -- Color outputs (1-bit each, converted to 4-bit in top level)
+        red : OUT STD_LOGIC;   -- Red color component
+        green : OUT STD_LOGIC; -- Green color component
+        blue : OUT STD_LOGIC;  -- Blue color component
+        
+        -- Game state outputs
+        score : OUT STD_LOGIC_VECTOR(15 DOWNTO 0); -- Binary score (0-65535)
+        lives : OUT STD_LOGIC_VECTOR(2 DOWNTO 0);  -- Lives remaining (0-3)
+        game_over : OUT STD_LOGIC                   -- Game over indicator
     );
 END galaga_game;
 
 ARCHITECTURE Behavioral OF galaga_game IS
-    -- Constants
-    CONSTANT player_size : INTEGER := 16; -- player ship size (Increased)
-    CONSTANT enemy_size : INTEGER := 16; -- enemy ship size (Increased)
-    CONSTANT bullet_size : INTEGER := 4; -- bullet size (Increased)
-    CONSTANT SPRITE_SCALE : INTEGER := 2; -- Sprite scaling factor
-    CONSTANT player_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(550, 11); -- player y position (bottom)
-    -- CONSTANT enemy_start_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(50, 11); -- REPLACED BY SIGNAL
-    CONSTANT bullet_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(16, 11); -- bullet speed (Increased from 8)
-    CONSTANT enemy_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(4, 11); -- enemy movement speed (Increased from 2)
-    CONSTANT enemy_bullet_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(6, 11); -- enemy bullet speed (Increased from 4)
+    -- ========================================================================
+    -- Game Constants
+    -- ========================================================================
+    -- Object sizes (in pixels, before scaling)
+    CONSTANT player_size : INTEGER := 16;  -- Player ship collision box size
+    CONSTANT enemy_size : INTEGER := 16;    -- Enemy collision box size
+    CONSTANT bullet_size : INTEGER := 4;    -- Bullet radius for circular collision
     
-    -- Enemy formation: 6 rows x 10 columns (More dense)
-    CONSTANT NUM_ENEMY_ROWS : INTEGER := 6;
-    CONSTANT NUM_ENEMY_COLS : INTEGER := 10;
-    CONSTANT ENEMY_SPACING_X : INTEGER := 50;
-    CONSTANT ENEMY_SPACING_Y : INTEGER := 40;
+    -- Rendering constants
+    CONSTANT SPRITE_SCALE : INTEGER := 2;   -- Scale factor: 16×16 sprites rendered as 32×32
     
-    -- Signals
-    SIGNAL player_on : STD_LOGIC;
-    SIGNAL enemy_on : STD_LOGIC;
-    SIGNAL bullet_on : STD_LOGIC;
-    SIGNAL enemy_bullet_on : STD_LOGIC;
-    SIGNAL game_active : STD_LOGIC := '1';
+    -- Fixed positions
+    CONSTANT player_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(550, 11); -- Player Y position (bottom of screen)
     
-    -- Game State
+    -- Movement speeds (pixels per frame at 60Hz)
+    CONSTANT bullet_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(16, 11); -- Player bullet speed (upward)
+    CONSTANT enemy_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(4, 11);    -- Enemy formation horizontal speed
+    CONSTANT enemy_bullet_speed : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(6, 11); -- Enemy bullet speed (downward)
+    
+    -- Enemy formation grid dimensions
+    CONSTANT NUM_ENEMY_ROWS : INTEGER := 6;  -- Number of enemy rows (0-5)
+    CONSTANT NUM_ENEMY_COLS : INTEGER := 10; -- Number of enemy columns (0-9)
+    CONSTANT ENEMY_SPACING_X : INTEGER := 50; -- Horizontal spacing between enemies (pixels)
+    CONSTANT ENEMY_SPACING_Y : INTEGER := 40; -- Vertical spacing between enemies (pixels)
+    
+    -- ========================================================================
+    -- Rendering Signals
+    -- ========================================================================
+    -- These signals indicate when a pixel should be drawn for each object type.
+    -- Used by color priority logic in top level to determine final pixel color.
+    SIGNAL player_on : STD_LOGIC;        -- Player ship pixel detected
+    SIGNAL enemy_on : STD_LOGIC;         -- Enemy pixel detected
+    SIGNAL bullet_on : STD_LOGIC;        -- Player bullet pixel detected
+    SIGNAL enemy_bullet_on : STD_LOGIC;  -- Enemy bullet pixel detected
+    SIGNAL game_active : STD_LOGIC := '1'; -- Game is in active state (affects rendering)
+    SIGNAL text_on : STD_LOGIC;         -- Text pixel detected (highest priority)
+    
+    -- ========================================================================
+    -- Finite State Machine
+    -- ========================================================================
+    -- 7-state FSM manages game flow: START → NEXT_WAVE → READY_SCREEN → 
+    -- FLY_IN → PLAY → (NEXT_WAVE or GAMEOVER) → RESULTS_SCREEN
     TYPE game_state_type IS (START, READY_SCREEN, PLAY, GAMEOVER, RESULTS_SCREEN, NEXT_WAVE, FLY_IN);
     SIGNAL current_state : game_state_type := START;
-    SIGNAL ready_timer_counter : STD_LOGIC_VECTOR(10 DOWNTO 0) := (OTHERS => '0');
-    SIGNAL text_on : STD_LOGIC;
-    SIGNAL wave_number : INTEGER := 1; -- Infinite levels
-    SIGNAL shoot_delay : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(60, 11);
+    
+    -- State timing and progression
+    SIGNAL ready_timer_counter : STD_LOGIC_VECTOR(10 DOWNTO 0) := (OTHERS => '0'); -- Timer for READY_SCREEN (120 frames = 2s)
+    SIGNAL wave_number : INTEGER := 1;  -- Current wave number (infinite progression)
+    SIGNAL shoot_delay : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(60, 11); -- Enemy fire rate (decreases with wave)
     
     -- Stats
     SIGNAL lives_count : INTEGER RANGE 0 TO 3 := 3;
@@ -97,19 +139,24 @@ ARCHITECTURE Behavioral OF galaga_game IS
     SIGNAL squad_timer : STD_LOGIC_VECTOR(11 DOWNTO 0) := (OTHERS => '0');
     SIGNAL squad_phase : INTEGER RANGE 0 TO 3 := 0;
     
-    -- Enemy positions and states
+    -- ========================================================================
+    -- Enemy Formation Management
+    -- ========================================================================
+    -- 2D array tracks state of each enemy in 6×10 grid (60 total positions)
     TYPE enemy_array IS ARRAY(0 TO NUM_ENEMY_ROWS-1, 0 TO NUM_ENEMY_COLS-1) OF STD_LOGIC;
-    SIGNAL enemy_alive : enemy_array := (OTHERS => (OTHERS => '1'));
-    SIGNAL enemy_is_diving : enemy_array := (OTHERS => (OTHERS => '0'));
-    SIGNAL enemy_x_pos : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(100, 11);
-    SIGNAL enemy_y_offset : STD_LOGIC_VECTOR(10 DOWNTO 0) := (OTHERS => '0'); -- vertical offset for moving down
-    SIGNAL enemy_direction : STD_LOGIC := '0'; -- 0 = right, 1 = left
-    SIGNAL enemy_move_counter : STD_LOGIC_VECTOR(20 DOWNTO 0) := (OTHERS => '0');
+    SIGNAL enemy_alive : enemy_array := (OTHERS => (OTHERS => '1'));      -- '1' = enemy exists, '0' = destroyed
+    SIGNAL enemy_is_diving : enemy_array := (OTHERS => (OTHERS => '0')); -- '1' = enemy has left formation for dive attack
     
-    -- New Signals for Fly-In and Breathing
-    SIGNAL current_start_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(50, 11);
-    SIGNAL formation_move_dir : STD_LOGIC := '0'; -- 0 = down, 1 = up (for breathing)
-    SIGNAL move_threshold : STD_LOGIC_VECTOR(20 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(5, 21);
+    -- Formation position and movement
+    SIGNAL enemy_x_pos : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(100, 11); -- Formation X position (left edge)
+    SIGNAL enemy_y_offset : STD_LOGIC_VECTOR(10 DOWNTO 0) := (OTHERS => '0'); -- Vertical offset for "breathing" animation (0-100 pixels)
+    SIGNAL enemy_direction : STD_LOGIC := '0'; -- Horizontal direction: '0' = moving right, '1' = moving left
+    SIGNAL enemy_move_counter : STD_LOGIC_VECTOR(20 DOWNTO 0) := (OTHERS => '0'); -- Counter for movement timing
+    
+    -- Formation animation and fly-in
+    SIGNAL current_start_y : STD_LOGIC_VECTOR(10 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(50, 11); -- Formation Y start position (animates 0→50 in FLY_IN state)
+    SIGNAL formation_move_dir : STD_LOGIC := '0'; -- Breathing direction: '0' = expanding down, '1' = contracting up
+    SIGNAL move_threshold : STD_LOGIC_VECTOR(20 DOWNTO 0) := CONV_STD_LOGIC_VECTOR(5, 21); -- Movement speed threshold (decreases with wave for faster movement)
 
     
     -- Score
@@ -838,16 +885,31 @@ BEGIN
     END PROCESS;
 
     
-    -- Main game logic process
-    lives <= CONV_STD_LOGIC_VECTOR(lives_count, 3);
+    -- ========================================================================
+    -- Main Game Logic Process
+    -- ========================================================================
+    -- This is the core game engine that runs synchronously with VGA vertical
+    -- sync (60Hz). It handles:
+    -- - State machine transitions
+    -- - Player shooting and bullet movement
+    -- - Enemy AI (formation movement, dive attacks, squad fly-ins, shooting)
+    -- - Collision detection (5 types)
+    -- - Wave progression and difficulty scaling
+    -- - Statistics tracking
+    --
+    -- All game state updates occur once per frame (60 FPS) for consistent timing.
+    -- ========================================================================
+    lives <= CONV_STD_LOGIC_VECTOR(lives_count, 3); -- Convert lives to output format
 
     game_logic : PROCESS
-        VARIABLE temp : STD_LOGIC_VECTOR(11 DOWNTO 0);
-        VARIABLE enemy_x, enemy_y : STD_LOGIC_VECTOR(10 DOWNTO 0);
-        VARIABLE enemies_remaining : INTEGER;
-        VARIABLE collision_found : STD_LOGIC;
-        VARIABLE game_over_timer : INTEGER := 0;
+        -- Temporary variables for calculations
+        VARIABLE temp : STD_LOGIC_VECTOR(11 DOWNTO 0);  -- Temporary for bullet position calculations
+        VARIABLE enemy_x, enemy_y : STD_LOGIC_VECTOR(10 DOWNTO 0); -- Enemy position for collision checks
+        VARIABLE enemies_remaining : INTEGER;  -- Count of alive enemies (for wave completion check)
+        VARIABLE collision_found : STD_LOGIC;   -- Flag to prevent multiple collisions per bullet
+        VARIABLE game_over_timer : INTEGER := 0; -- Timer for GAMEOVER state (180 frames = 3s)
     BEGIN
+        -- Synchronize with VGA vertical sync (60Hz) - one game logic update per frame
         WAIT UNTIL rising_edge(v_sync);
         
         -- Update Star Scroll
