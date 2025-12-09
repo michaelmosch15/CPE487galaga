@@ -393,28 +393,38 @@ BEGIN
                     IF pixel_col >= enemy_x - HALF_SIZE AND pixel_col < enemy_x + HALF_SIZE AND
                        pixel_row >= enemy_y - HALF_SIZE AND pixel_row < enemy_y + HALF_SIZE THEN
                         
+                        -- Calculate sprite indices with bounds checking
                         sx := (CONV_INTEGER(pixel_col - (enemy_x - HALF_SIZE))) / SPRITE_SCALE;
                         sy := (CONV_INTEGER(pixel_row - (enemy_y - HALF_SIZE))) / SPRITE_SCALE;
                         
-                        IF row = 0 OR row = 1 THEN
-                            -- Walker (Back) - Only after Level 2
-                            IF wave_number > 2 THEN
-                                IF walker_sprite(sy)(sx) = '1' THEN
-                                    found := '1';
-                                    current_color := "101"; -- Magenta
+                        -- Ensure sprite indices are within valid range (0-15)
+                        IF sx >= 0 AND sx < 16 AND sy >= 0 AND sy < 16 THEN
+                            IF row = 0 OR row = 1 THEN
+                                -- Walker (Back) - Use walker sprite after wave 2, otherwise use crab sprite
+                                IF wave_number > 2 THEN
+                                    IF walker_sprite(sy)(sx) = '1' THEN
+                                        found := '1';
+                                        current_color := "101"; -- Magenta
+                                    END IF;
+                                ELSE
+                                    -- In early waves, use crab sprite for rows 0-1
+                                    IF crab_sprite(sy)(sx) = '1' THEN
+                                        found := '1';
+                                        current_color := "100"; -- Red
+                                    END IF;
                                 END IF;
-                            END IF;
-                        ELSIF row = 2 OR row = 3 THEN
-                            -- Crab (Middle)
-                            IF crab_sprite(sy)(sx) = '1' THEN
-                                found := '1';
-                                current_color := "100"; -- Red
-                            END IF;
-                        ELSE
-                            -- Bee (Front)
-                            IF bee_sprite(sy)(sx) = '1' THEN
-                                found := '1';
-                                current_color := "110"; -- Yellow
+                            ELSIF row = 2 OR row = 3 THEN
+                                -- Crab (Middle)
+                                IF crab_sprite(sy)(sx) = '1' THEN
+                                    found := '1';
+                                    current_color := "100"; -- Red
+                                END IF;
+                            ELSE
+                                -- Bee (Front)
+                                IF bee_sprite(sy)(sx) = '1' THEN
+                                    found := '1';
+                                    current_color := "110"; -- Yellow
+                                END IF;
                             END IF;
                         END IF;
                     END IF;
@@ -430,22 +440,33 @@ BEGIN
                 sx := (CONV_INTEGER(pixel_col - (diver_x - HALF_SIZE))) / SPRITE_SCALE;
                 sy := (CONV_INTEGER(pixel_row - (diver_y - HALF_SIZE))) / SPRITE_SCALE;
                 
-                -- Determine sprite based on origin row
-                IF diver_row = 0 OR diver_row = 1 THEN
-                     IF walker_sprite(sy)(sx) = '1' THEN
-                        found := '1';
-                        current_color := "101";
-                     END IF;
-                ELSIF diver_row = 2 OR diver_row = 3 THEN
-                     IF crab_sprite(sy)(sx) = '1' THEN
-                        found := '1';
-                        current_color := "100";
-                     END IF;
-                ELSE
-                     IF bee_sprite(sy)(sx) = '1' THEN
-                        found := '1';
-                        current_color := "110";
-                     END IF;
+                -- Ensure sprite indices are within valid range (0-15)
+                IF sx >= 0 AND sx < 16 AND sy >= 0 AND sy < 16 THEN
+                    -- Determine sprite based on origin row
+                    IF diver_row = 0 OR diver_row = 1 THEN
+                        -- Use walker sprite if wave > 2, otherwise crab
+                        IF wave_number > 2 THEN
+                            IF walker_sprite(sy)(sx) = '1' THEN
+                                found := '1';
+                                current_color := "101";
+                            END IF;
+                        ELSE
+                            IF crab_sprite(sy)(sx) = '1' THEN
+                                found := '1';
+                                current_color := "100";
+                            END IF;
+                        END IF;
+                    ELSIF diver_row = 2 OR diver_row = 3 THEN
+                        IF crab_sprite(sy)(sx) = '1' THEN
+                            found := '1';
+                            current_color := "100";
+                        END IF;
+                    ELSE
+                        IF bee_sprite(sy)(sx) = '1' THEN
+                            found := '1';
+                            current_color := "110";
+                        END IF;
+                    END IF;
                 END IF;
             END IF;
         END IF;
@@ -457,9 +478,11 @@ BEGIN
                pixel_row >= squad_y - HALF_SIZE AND pixel_row < squad_y + HALF_SIZE THEN
                 sx := (CONV_INTEGER(pixel_col - (squad_x - HALF_SIZE))) / SPRITE_SCALE;
                 sy := (CONV_INTEGER(pixel_row - (squad_y - HALF_SIZE))) / SPRITE_SCALE;
-                IF bee_sprite(sy)(sx) = '1' THEN
-                    found := '1';
-                    current_color := "110"; -- Yellow
+                IF sx >= 0 AND sx < 16 AND sy >= 0 AND sy < 16 THEN
+                    IF bee_sprite(sy)(sx) = '1' THEN
+                        found := '1';
+                        current_color := "110"; -- Yellow
+                    END IF;
                 END IF;
             END IF;
             -- Wingman 1 (Crab)
@@ -467,9 +490,11 @@ BEGIN
                pixel_row >= squad_y - 20 - HALF_SIZE AND pixel_row < squad_y - 20 + HALF_SIZE THEN
                 sx := (CONV_INTEGER(pixel_col - (squad_x - 20 - HALF_SIZE))) / SPRITE_SCALE;
                 sy := (CONV_INTEGER(pixel_row - (squad_y - 20 - HALF_SIZE))) / SPRITE_SCALE;
-                IF crab_sprite(sy)(sx) = '1' THEN
-                    found := '1';
-                    current_color := "100"; -- Red
+                IF sx >= 0 AND sx < 16 AND sy >= 0 AND sy < 16 THEN
+                    IF crab_sprite(sy)(sx) = '1' THEN
+                        found := '1';
+                        current_color := "100"; -- Red
+                    END IF;
                 END IF;
             END IF;
             -- Wingman 2 (Crab)
@@ -477,9 +502,11 @@ BEGIN
                pixel_row >= squad_y + 20 - HALF_SIZE AND pixel_row < squad_y + 20 + HALF_SIZE THEN
                 sx := (CONV_INTEGER(pixel_col - (squad_x - 20 - HALF_SIZE))) / SPRITE_SCALE;
                 sy := (CONV_INTEGER(pixel_row - (squad_y + 20 - HALF_SIZE))) / SPRITE_SCALE;
-                IF crab_sprite(sy)(sx) = '1' THEN
-                    found := '1';
-                    current_color := "100"; -- Red
+                IF sx >= 0 AND sx < 16 AND sy >= 0 AND sy < 16 THEN
+                    IF crab_sprite(sy)(sx) = '1' THEN
+                        found := '1';
+                        current_color := "100"; -- Red
+                    END IF;
                 END IF;
             END IF;
         END IF;
