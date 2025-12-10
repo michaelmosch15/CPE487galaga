@@ -90,15 +90,6 @@ The core of the game is the enemy formation, which evolves in difficulty.
 *   **USB Cable:** Micro-USB cable for power and programming
 *   **Computer:** Windows/Linux system with Vivado installed for synthesis and programming
 
-### Optional Components
-*   **External Power Supply:** While USB power works, external supply recommended for stability during long gameplay sessions
-
-### No Additional Modules Required
-Unlike some projects, this implementation does **not** require:
-- Speaker module (audio not implemented)
-- External memory modules (all graphics generated procedurally)
-- Additional I/O expansion boards
-
 ## Instructions to Run the Project
 
 ### 1. Project Setup in Vivado
@@ -119,7 +110,7 @@ Unlike some projects, this implementation does **not** require:
 3.  Click **Generate Bitstream**.
 
 ### 3. Programming
-1.  Connect the Nexys A7 board to your PC via USB.
+1.  Connect the Nexys A7 board.
 2.  Open **Hardware Manager** > **Open Target** > **Auto Connect**.
 3.  Click **Program Device** and select the `galaga.bit` file.
 
@@ -133,7 +124,7 @@ Unlike some projects, this implementation does **not** require:
 
 ## Inputs and Outputs to/from Nexys Board
 
-This section describes all inputs from and outputs to the Nexys A7-100T board, including which ports were added or modified from the starter code (Lab 6 Pong).
+This section describes all inputs from and outputs to the Nexys A7-100T board.
 
 ### Inputs (From Board to FPGA)
 
@@ -146,7 +137,7 @@ This section describes all inputs from and outputs to the Nexys A7-100T board, i
 | `btnu` | 1-bit | M18 | LVCMOS33 | Up button - reset game | User input |
 
 **Input Modifications from Starter Code:**
-- **`btnu` (Reset Button):** This input was **added** to the project. The original Pong game used a different reset mechanism. We added this button to provide a dedicated reset function, mapped to pin M18 in the constraint file. This demonstrates our ability to add new inputs and modify the constraint file accordingly.
+- **`btnu` (Reset Button):** This input was added to the project. We added this button to provide a dedicated reset function, mapped to pin M18 in the constraint file.
 
 ### Outputs (From FPGA to Board)
 
