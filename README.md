@@ -167,7 +167,6 @@ This section describes all inputs from and outputs to the Nexys A7-100T board.
 - Present in starter code, used to display score
 - **Modification:** Score now displays in **decimal format** (BCD) instead of hexadecimal
 - Binary-to-BCD conversion was added in `galaga.vhd` to ensure decimal display
-- This demonstrates data format conversion and output modification
 
 #### LED Outputs
 
@@ -186,7 +185,6 @@ This section describes all inputs from and outputs to the Nexys A7-100T board.
   - LED 14 ON = 2 or more lives  
   - LED 13 ON = 1 or more lives
 - All LED mappings were added to `galaga.xdc` constraint file
-- This demonstrates adding new outputs and modifying both the VHDL entity and constraint file
 
 ### Constraint File (.xdc) Modifications
 
@@ -358,7 +356,7 @@ graph TD
         subgraph Game_Core
             FSM["Finite State Machine<br/>(Start, Play, Over)"]
             Physics["Physics Engine<br/>(Movement, Collision)"]
-            ["Enemy <br/>(Timers, Patterns)"]
+            AI["Enemy <br/>(Timers, Patterns)"]
             Renderer["Sprite Renderer<br/>(Bitmaps, Color Mux)"]
         end
         
