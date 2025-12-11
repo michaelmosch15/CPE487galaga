@@ -129,7 +129,7 @@ This section describes all inputs from and outputs to the Nexys A7-100T board.
 ### Inputs (From Board to FPGA)
 
 | Signal Name | Width | Board Pin | I/O Standard | Description | Source |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| :--- | :--- | :--- | :--- | :--- | :--- |
 | `clk_in` | 1-bit | E3 | LVCMOS33 | 100 MHz system clock | Board oscillator |
 | `btnl` | 1-bit | P17 | LVCMOS33 | Left button - move ship left | User input |
 | `btnr` | 1-bit | M17 | LVCMOS33 | Right button - move ship right | User input |
