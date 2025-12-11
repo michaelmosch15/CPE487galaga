@@ -1,7 +1,7 @@
 # Final Project: Video Game Galaga (CPE 487)
 ## Lily Stone and Michael Moschello
 
-This project implements a sophisticated recreation of the arcade classic **Galaga** on the Digilent Nexys A7-100T FPGA board. Written entirely in VHDL, the system features a custom VGA graphics engine, complex enemy AI, sprite-based rendering, and a finite state machine (FSM) game loop.
+This project implements a sophisticated recreation of the arcade classic **Galaga** on the Digilent Nexys A7-100T FPGA board. Written entirely in VHDL, the system features a custom VGA graphics engine, complex enemy reasoning, sprite-based rendering, and a finite state machine (FSM) game loop.
 
 ## Expected Behavior
 
@@ -280,7 +280,7 @@ stateDiagram-v2
         Active gameplay:
         - Player movement
         - Shooting
-        - Enemy AI
+        - Enemy 
         - Collisions
         - Scoring
     end note
@@ -304,7 +304,7 @@ stateDiagram-v2
 - **NEXT_WAVE:** Configures enemy formation based on wave number, sets difficulty parameters, resets positions
 - **READY_SCREEN:** Displays "READY!" message, waits 2 seconds (120 frames at 60Hz)
 - **FLY_IN:** Animates enemies entering from top of screen (current_start_y: 0 → 50)
-- **PLAY:** Active gameplay state where all game logic executes (movement, shooting, collisions, AI)
+- **PLAY:** Active gameplay state where all game logic executes (movement, shooting, collisions)
 - **GAMEOVER:** Displays "GAME OVER" message, waits 3 seconds (180 frames)
 - **RESULTS_SCREEN:** Shows statistics (score, shots, hits, accuracy), waits for reset
 
@@ -358,7 +358,7 @@ graph TD
         subgraph Game_Core
             FSM["Finite State Machine<br/>(Start, Play, Over)"]
             Physics["Physics Engine<br/>(Movement, Collision)"]
-            AI["Enemy AI<br/>(Timers, Patterns)"]
+            ["Enemy <br/>(Timers, Patterns)"]
             Renderer["Sprite Renderer<br/>(Bitmaps, Color Mux)"]
         end
         
@@ -508,7 +508,7 @@ These modules provide essential infrastructure and required no modifications for
    - Dynamic formation patterns that change with wave number
    - "Breathing" animation (vertical expansion/contraction)
 
-4. **Enemy AI Behaviors (NEW):**
+4. **Enemy Behaviors (NEW):**
    - **Formation Movement:** Horizontal movement with edge bouncing
    - **Dive Attacks:** Individual enemies break formation and dive toward player
    - **Squad Fly-Ins:** Special attack patterns with leader and wingmen
@@ -652,7 +652,7 @@ The game maintains a 6-row by 10-column grid of enemies (60 total positions). Ea
 * **`enemy_alive`:** Boolean array indicating if an enemy exists at that position
 * **`enemy_is_diving`:** Boolean array indicating if an enemy has left formation for a dive attack
 
-**Enemy AI Behaviors:**
+**Enemy Behaviors:**
 * **Formation Movement:** The entire grid moves horizontally, bouncing off screen edges and "breathing" vertically (expanding and contracting).
 * **Dive Attacks:** Individual enemies break formation and dive toward the player in curved paths, firing triple-shot attacks.
 * **Squad Fly-Ins:** Special attack patterns where a leader and two wingmen fly in from the side of the screen.
@@ -763,7 +763,7 @@ Where `row_scrolled = pixel_row + star_scroll_y`. The algorithm:
 - Scrolls by incrementing `star_scroll_y` every 4 frames
 - Requires no memory - stars are generated on-the-fly based on position
 
-**Enemy AI Implementation:**
+**Enemy Implementation:**
 
 **Formation Movement:**
 - Uses `enemy_move_counter` that increments each frame
@@ -941,7 +941,7 @@ This project successfully transforms a simple Pong game into a complex Galaga im
 - **Understanding of VHDL architecture:** Creating complex state machines and game logic
 - **System integration:** Connecting multiple modules and managing data flow
 - **Hardware interfacing:** Adding new inputs/outputs and constraint file modifications
-- **Algorithm implementation:** Collision detection, AI behaviors, procedural generation
+- **Algorithm implementation:** Collision detection, behaviors, procedural generation
 - **Real-time systems:** Synchronizing game logic with VGA display at 60 FPS
 
 ### Summary of Process
@@ -971,7 +971,7 @@ With the basic mechanics working, the next phase focused on improving visual app
 
 #### Phase 3: Gameplay Refinement
 Once graphics were established, the focus shifted to making the game more engaging:
-- **Enemy AI Behaviors:** Added complex enemy attack patterns
+- **Enemy Behaviors:** Added complex enemy attack patterns
   - Implemented dive attacks where individual enemies break formation
   - Created squad fly-in attacks with leader and wingmen
   - Added random enemy shooting from formation
