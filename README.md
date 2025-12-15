@@ -864,33 +864,19 @@ The clock wizard files (`clk_wiz_0.vhd` and `clk_wiz_0_clk_wiz.vhd`) are generat
 * **Output:** ~25 MHz pixel clock for VGA timing
 
 ## Images and Videos
+Ready Screen <br/> 
+<img src="./images/ready.jpeg" style="width:50%; height:auto;"> <br/>
+Game Over Screen <br/>
+<img src="./images/gameover.jpeg" style="width:50%; height:auto;"><br/>
+Board Setup<br/>
+<img src="./images/boardsetup.jpeg" style="width:50%; height:auto;"><br/>
+Board with score and lives<br/>
+<img src="./images/boardlives.jpeg" style="width:50%; height:auto;"><br/>
+Statistics Screen<br/>
+<img src="./images/stats.jpeg" style="width:50%; height:auto;"><br/>
 
-### Screenshots
+[Gameplay Video](https://stevens0-my.sharepoint.com/:v:/g/personal/lstone1_stevens_edu/IQDRi9NEKqZSRpEbaNMzIs9QAVV3pFm0gaQEMaIT-8r4wbA?e=gybzwa&nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D) 
 
-*[Placeholder for game screenshots - add images showing:]*
-- Gameplay screenshot showing enemy formation
-- Ready screen with "READY!" message
-- Game over screen
-- Results screen with statistics
-- Multiple waves showing different formations
-
-### Video Demonstration
-
-*[Placeholder for video link - add video showing:]*
-- Game startup sequence
-- Player movement and shooting
-- Enemy dive attacks
-- Wave progression
-- Game over and results screen
-
-### Hardware Setup Images
-
-*[Placeholder for hardware images - add photos showing:]*
-- Nexys A7 board connected to VGA monitor
-- Close-up of board showing LEDs and 7-segment display
-- Overall setup with cables and connections
-
-**Note:** Images and videos should be added to demonstrate the project in action. These provide visual context for reviewers and help verify the project works as described.
 
 ## Required Hardware
 *   **FPGA:** Digilent Nexys A7-100T (Artix-7).
